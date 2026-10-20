@@ -1,9 +1,38 @@
 """Chạy nhiều profile song song, mỗi profile 1 thread + 1 trình duyệt riêng."""
 
 import threading
+import time
+from datetime import date, timedelta
 
 from .bot import RewardsBot
+from .config import LOG_DIR
 from ..search.bank import QueryBank
+
+LOG_KEEP_DAYS = 14
+
+
+class FileLog:
+    """Ghi nhật ký ra data/logs/YYYY-MM-DD.log (giữ 14 ngày) để xem lại sau khi tắt app."""
+
+    def __init__(self):
+        self.lock = threading.Lock()
+        try:
+            LOG_DIR.mkdir(parents=True, exist_ok=True)
+            cutoff = (date.today() - timedelta(days=LOG_KEEP_DAYS)).isoformat()
+            for f in LOG_DIR.glob("*.log"):
+                if f.stem < cutoff:
+                    f.unlink()
+        except OSError:
+            pass
+
+    def write(self, name: str, msg: str) -> None:
+        line = f"{time.strftime('%H:%M:%S')} [{name}] {msg}\n"
+        with self.lock:
+            try:
+                with open(LOG_DIR / f"{date.today().isoformat()}.log", "a", encoding="utf-8") as f:
+                    f.write(line)
+            except OSError:
+                pass
 
 
 class Runner:
@@ -11,7 +40,13 @@ class Runner:
 
     def __init__(self, bank: QueryBank, log, status, done):
         self.bank = bank
-        self.log, self.status, self.done = log, status, done
+        self._file_log = FileLog()
+
+        def log_both(name, msg):
+            self._file_log.write(name, msg)
+            log(name, msg)
+
+        self.log, self.status, self.done = log_both, status, done
         self.running: dict = {}  # name -> stop Event
         self.sem = None
         self.lock = threading.Lock()

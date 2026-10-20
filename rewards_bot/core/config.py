@@ -8,7 +8,8 @@ PROFILES_DIR = DATA_DIR / "profiles"
 SETTINGS_FILE = DATA_DIR / "settings.json"
 HISTORY_FILE = DATA_DIR / "search_history.json"
 POINTS_HISTORY_FILE = DATA_DIR / "points_history.json"  # số liệu điểm theo ngày cho biểu đồ
-DASHBOARD_FILE = DATA_DIR / "dashboard.json"  # điểm + trạng thái task lần cuối, để mở app là thấy ngay
+DASHBOARD_FILE = DATA_DIR / "dashboard.json"
+LOG_DIR = DATA_DIR / "logs"  # nhật ký mỗi ngày 1 file  # điểm + trạng thái task lần cuối, để mở app là thấy ngay
 
 DEFAULT_SETTINGS = {
     "search_delay_min": 8,
