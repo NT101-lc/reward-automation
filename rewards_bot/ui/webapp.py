@@ -23,6 +23,7 @@ WEB_DIR = Path(__file__).resolve().parent / "web"
 # Kiểu và khoảng hợp lệ của từng cài đặt: mọi giá trị từ giao diện đều được kiểm tra trước khi lưu
 SETTING_SCHEMA = {
     "search_delay_min": (int, 1, 600), "search_delay_max": (int, 1, 600), "extra_searches": (int, 0, 20),
+    "slow_minutes": (int, 0, 60),
     "max_parallel": (int, 1, 10), "history_days": (int, 0, 365), "image_searches": (int, 0, 50),
     "browse_minutes": (int, 1, 240),
     "headless": (bool,), "do_quests": (bool,), "do_pc": (bool,), "do_mobile": (bool,), "do_images": (bool,),

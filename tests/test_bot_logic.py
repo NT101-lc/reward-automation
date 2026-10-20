@@ -54,7 +54,7 @@ def test_searches_needed():
 
 
 def test_search_stops_when_points_stall():
-    bot, logs = make_bot()
+    bot, logs = make_bot(slow_minutes=0)
     bot.state = empty_state()
     bot.state["mobile"] = {"progress": 24, "max": 60}
     bot._recheck = lambda page, kind: {"progress": 24, "max": 60}  # không bao giờ tăng
@@ -63,6 +63,50 @@ def test_search_stops_when_points_stall():
     assert "mobile" in bot.stalled
     assert len(page.visits) == bot.STALL_AFTER  # dừng sau đúng số lượt không được cộng
     assert any("không được cộng điểm" in m for m in logs)
+
+
+def test_slow_mode_after_stall_until_full():
+    bot, logs = make_bot(slow_minutes=15)
+    bot.state = empty_state()
+    bot.state["mobile"] = {"progress": 36, "max": 60}
+    seq = iter([36, 36, 39, 39, 42, 45, 48, 51, 54, 57, 60])  # search nhanh: đứng yên; chế độ chậm: lúc tăng lúc không
+    bot._recheck = lambda page, kind: {"progress": next(seq), "max": 60}
+    page = FakePage()
+    bot.do_searches(page, "mobile", "Search Mobile")
+    assert not bot.stalled
+    assert any("chế độ chậm" in m for m in logs)
+    assert len(page.visits) == bot.STALL_AFTER + 9
+
+
+def test_slow_mode_when_few_searches_left_get_nothing():
+    bot, logs = make_bot(slow_minutes=15)
+    bot.state = empty_state()
+    bot.state["mobile"] = {"progress": 48, "max": 60}  # chỉ 4 lượt: không kịp chạm STALL_AFTER
+    seq = iter([48, 48, 51, 54, 57, 60])
+    bot._recheck = lambda page, kind: {"progress": next(seq), "max": 60}
+    page = FakePage()
+    bot.do_searches(page, "mobile", "Search Mobile")
+    assert not bot.stalled
+    assert len(page.visits) == 4 + 4
+
+
+def test_slow_mode_gives_up():
+    bot, logs = make_bot(slow_minutes=15)
+    bot.state = empty_state()
+    bot.state["mobile"] = {"progress": 36, "max": 60}
+    bot._recheck = lambda page, kind: {"progress": 36, "max": 60}
+    page = FakePage()
+    bot.do_searches(page, "mobile", "Search Mobile")
+    assert "mobile" in bot.stalled
+    assert len(page.visits) == bot.STALL_AFTER + bot.SLOW_GIVE_UP
+
+
+def test_mobile_profile_matches_real_version():
+    p = RewardsBot.mobile_profile({"chromium": "155.0.8059.85", "edge": "155.0.4283.62"})
+    md = p["userAgentMetadata"]
+    assert "Chrome/155.0.0.0" in p["userAgent"] and "EdgA/155.0.0.0" in p["userAgent"]
+    assert {b["version"] for b in md["brands"] if b["brand"] != "Not(A:Brand"} == {"155"}
+    assert md["fullVersion"] == "155.0.4283.62" and md["bitness"] == "" and md["mobile"]
 
 
 def test_search_continues_while_points_increase():

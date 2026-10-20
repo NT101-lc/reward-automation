@@ -21,10 +21,8 @@ DASHBOARD_URL = REWARDS + "/dashboard"
 EARN_URL = REWARDS + "/earn"
 POINTS_PER_SEARCH = 3
 
-MOBILE_UA = (
-    "Mozilla/5.0 (Linux; Android 14; Pixel 8) AppleWebKit/537.36 "
-    "(KHTML, like Gecko) Chrome/129.0.0.0 Mobile Safari/537.36 EdgA/129.0.0.0"
-)
+# Dùng khi không đọc được phiên bản trình duyệt thật
+FALLBACK_VERSIONS = {"chromium": "141.0.7390.55", "edge": "141.0.3537.57"}
 
 # Trang dùng cho task "browse": tin tức / kiến thức, nhiều link nội bộ để lướt tiếp
 BROWSE_SITES = [
@@ -129,20 +127,64 @@ class RewardsBot:
                 pass
 
     @staticmethod
-    def _emulate_mobile(ctx: BrowserContext, page: Page):
+    def _real_versions(ctx: BrowserContext, cdp) -> dict:
+        """Phiên bản Chromium / Edge thật của trình duyệt đang chạy (để giả lập mobile không lệch phiên bản)."""
+        for pg in ctx.pages:  # tab desktop đang ở https -> có fullVersionList đầy đủ
+            if not pg.url.startswith("https://"):
+                continue
+            try:
+                lst = pg.evaluate("async () => (await navigator.userAgentData.getHighEntropyValues("
+                                  "['fullVersionList'])).fullVersionList")
+                v = {b["brand"]: b["version"] for b in lst}
+                if "Chromium" in v:
+                    return {"chromium": v["Chromium"], "edge": v.get("Microsoft Edge")}
+            except Exception:
+                pass
+        try:  # UA rút gọn: chỉ có số phiên bản chính
+            ua = cdp.send("Browser.getVersion")["userAgent"]
+            v = {"chromium": re.search(r"Chrome/([\d.]+)", ua).group(1)}
+            edge = re.search(r"Edg/([\d.]+)", ua)
+            v["edge"] = edge.group(1) if edge else None
+            return v
+        except Exception:
+            return dict(FALLBACK_VERSIONS)
+
+    @staticmethod
+    def mobile_profile(versions: dict) -> dict:
+        """UA + client hints của Edge trên Android, khớp đúng phiên bản trình duyệt thật.
+
+        Bing so sánh User-Agent với Sec-CH-UA-*; nếu lệch (vd UA cũ 129 nhưng full-version-list là 155,
+        bitness 64 trên điện thoại) thì search Mobile có thể không được tính cho tài khoản bị soi kỹ.
+        """
+        chromium, edge = versions["chromium"], versions.get("edge")
+        major = chromium.split(".")[0]
+        brands = [{"brand": "Chromium", "version": major}, {"brand": "Not(A:Brand", "version": "24"}]
+        full = [{"brand": "Chromium", "version": chromium}, {"brand": "Not(A:Brand", "version": "24.0.0.0"}]
+        ua = f"Mozilla/5.0 (Linux; Android 10; K) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/{major}.0.0.0 Mobile Safari/537.36"
+        if edge:
+            brands.insert(0, {"brand": "Microsoft Edge", "version": edge.split(".")[0]})
+            full.insert(0, {"brand": "Microsoft Edge", "version": edge})
+            ua += f" EdgA/{edge.split('.')[0]}.0.0.0"
+        else:
+            brands.insert(0, {"brand": "Google Chrome", "version": major})
+            full.insert(0, {"brand": "Google Chrome", "version": chromium})
+        return {
+            "userAgent": ua,
+            "platform": "Linux armv81",
+            "userAgentMetadata": {
+                "brands": brands, "fullVersionList": full, "fullVersion": edge or chromium,
+                "platform": "Android", "platformVersion": "14.0.0", "architecture": "", "bitness": "",
+                "model": "Pixel 8", "mobile": True, "wow64": False,
+            },
+        }
+
+    @classmethod
+    def _emulate_mobile(cls, ctx: BrowserContext, page: Page):
         """Giả lập điện thoại Android cho 1 tab (search Mobile được tính riêng với PC)."""
         cdp = ctx.new_cdp_session(page)
-        cdp.send("Emulation.setUserAgentOverride", {
-            "userAgent": MOBILE_UA,
-            "platform": "Linux armv8l",
-            "userAgentMetadata": {
-                "brands": [{"brand": "Chromium", "version": "129"}, {"brand": "Microsoft Edge", "version": "129"}],
-                "fullVersion": "129.0.0.0", "platform": "Android", "platformVersion": "14.0.0",
-                "architecture": "", "model": "Pixel 8", "mobile": True,
-            },
-        })
+        cdp.send("Emulation.setUserAgentOverride", cls.mobile_profile(cls._real_versions(ctx, cdp)))
         cdp.send("Emulation.setDeviceMetricsOverride",
-                 {"width": 412, "height": 915, "deviceScaleFactor": 2.6, "mobile": True})
+                 {"width": 412, "height": 915, "deviceScaleFactor": 2.625, "mobile": True})
         cdp.send("Emulation.setTouchEmulationEnabled", {"enabled": True, "maxTouchPoints": 5})
         return cdp
 
@@ -389,22 +431,65 @@ class RewardsBot:
                     if last_progress is None or c["progress"] > last_progress:
                         last_progress, last_gain_at = c["progress"], i
                     elif i - last_gain_at >= self.STALL_AFTER:
-                        self.log(f"Lỗi: {label} không được cộng điểm sau {i - last_gain_at} lượt liên tiếp "
-                                 f"(đứng ở {c['progress']}/{c['max']}), dừng {label}. Nguyên nhân thường gặp: "
-                                 "bing.com đăng nhập sai tài khoản (bấm Kiểm tra), hoặc Microsoft tạm không tính "
-                                 "search cho tài khoản này.")
-                        self.stalled.add(kind)
+                        if int(self.s.get("slow_minutes", 15)) > 0:
+                            self._slow_searches(page, kind, label, check_page, c["progress"])
+                        else:
+                            self._stall(kind, label, f"sau {i - last_gain_at} lượt liên tiếp", c)
                         return
-            q = self.bank.take(self.name)
             self.status(progress=f"{label} {i + 1}/{count}")
-            try:
-                page.goto(f"https://www.bing.com/search?q={quote_plus(q)}&form=QBLH",
-                          wait_until="domcontentloaded", timeout=30000)
-                page.mouse.wheel(0, random.randint(200, 1200))
-            except Exception as e:
-                self.log(f"  lỗi khi tìm '{q}': {e}")
-            self.log(f"  [{label} {i + 1}/{count}] {q}")
+            self._search_once(page, f"{label} {i + 1}/{count}")
             self.sleep(self.s["search_delay_min"], self.s["search_delay_max"])
+        # hết lượt mà chưa đủ điểm và mấy lượt cuối không được cộng -> có thể bị giới hạn tốc độ
+        if int(self.s.get("slow_minutes", 15)) > 0 and count - last_gain_at >= min(self.STALL_AFTER, count):
+            c = self._recheck(check_page, kind)
+            if c and c["progress"] < c["max"] and (last_progress is None or c["progress"] <= last_progress):
+                self._slow_searches(page, kind, label, check_page, c["progress"])
+
+    def _search_once(self, page: Page, tag: str) -> None:
+        q = self.bank.take(self.name)
+        try:
+            page.goto(f"https://www.bing.com/search?q={quote_plus(q)}&form=QBLH",
+                      wait_until="domcontentloaded", timeout=30000)
+            page.mouse.wheel(0, random.randint(200, 1200))
+        except Exception as e:
+            self.log(f"  lỗi khi tìm '{q}': {e}")
+        self.log(f"  [{tag}] {q}")
+
+    def _stall(self, kind: str, label: str, why: str, c: dict) -> None:
+        self.log(f"Lỗi: {label} không được cộng điểm {why} (đứng ở {c['progress']}/{c['max']}), dừng {label}. "
+                 "Nguyên nhân thường gặp: bing.com đăng nhập sai tài khoản (bấm Kiểm tra), hoặc Microsoft tạm "
+                 "không tính search cho tài khoản này.")
+        self.stalled.add(kind)
+
+    SLOW_GIVE_UP = 3  # chế độ chậm: bao nhiêu lượt liên tiếp không được cộng thì bỏ
+
+    def _slow_searches(self, page: Page, kind: str, label: str, check_page: Page, progress: int) -> None:
+        """Search cách quãng dài cho tài khoản bị Microsoft giới hạn tốc độ (chỉ tính ~1 lượt mỗi vài phút)."""
+        minutes = int(self.s.get("slow_minutes", 15))
+        self.log(f"cảnh báo: {label} không được cộng điểm khi search liên tục, có thể Microsoft đang giới hạn "
+                 f"tốc độ tài khoản này. Chuyển sang chế độ chậm: mỗi lượt cách khoảng {minutes} phút")
+        misses = n = 0
+        while True:
+            self.status(progress=f"{label}: chế độ chậm, chờ {minutes} phút")
+            self.sleep(minutes * 60 * 0.9, minutes * 60 * 1.1)
+            n += 1
+            self.status(progress=f"{label}: chế độ chậm, lượt {n}")
+            self._search_once(page, f"{label} chậm {n}")
+            self.sleep(30, 45)  # chờ Rewards ghi nhận
+            c = self._recheck(check_page, kind)
+            if not c:
+                continue
+            self.log(f"  {label}: {c['progress']}/{c['max']} điểm")
+            if c["progress"] >= c["max"]:
+                self.log(f"{label}: đã đủ điểm")
+                return
+            if c["progress"] > progress:
+                progress, misses = c["progress"], 0
+                continue
+            misses += 1
+            if misses >= self.SLOW_GIVE_UP:
+                self._stall(kind, label, f"kể cả khi search cách {minutes} phút ({misses} lượt)", c)
+                return
 
     def do_image_searches(self, page: Page, count: int) -> None:
         row = activity(self.state, "visual search")

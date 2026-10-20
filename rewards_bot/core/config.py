@@ -18,6 +18,7 @@ DEFAULT_SETTINGS = {
     "search_delay_min": 8,
     "search_delay_max": 20,
     "extra_searches": 2,
+    "slow_minutes": 15,  # search không được cộng điểm -> search chậm, mỗi lượt cách N phút (0 = tắt)
     "browser_channel": "msedge",
     "headless": False,
     "max_parallel": 3,
