@@ -1,7 +1,7 @@
 "use strict";
 // Giao diện Rewards Bot. Mọi dữ liệu đến từ Python (window.pywebview.api) và sự kiện window.onEvents.
 
-const S = { settings: {}, profiles: [], pstate: {}, history: {}, running: new Set(), bank: [], catalog: {},
+const S = { settings: {}, profiles: [], pstate: {}, history: {}, running: new Set(),
             logs: [], unreadErr: 0, selected: null, page: "dashboard" };
 const api = () => window.pywebview.api;
 const $ = (s, el = document) => el.querySelector(s);
@@ -10,7 +10,7 @@ const esc = (s) => String(s ?? "").replace(/[&<>"']/g, (c) => ({ "&": "&amp;", "
 const fmt = (n) => (n === null || n === undefined || n === "" ? "—" : Number(n).toLocaleString("en-US"));
 const SERIES = [["pc", "Search PC", "#2a78d6"], ["mobile", "Search Mobile", "#eb6834"], ["offers", "Offers", "#1baf7a"]];
 const RUN_STATES = ["Đang chạy", "Đang chờ", "Đang làm mới", "Đang đăng nhập"];
-const GROUP_ORDER = ["Tìm kiếm", "Daily Set", "Keep earning", "Hoạt động", "Quests", "Task thêm"];
+const GROUP_ORDER = ["Tìm kiếm", "Daily Set", "Keep earning", "Hoạt động", "Task thêm"];
 const CHECK = '<svg viewBox="0 0 12 12"><path d="M2.5 6.5 5 9l4.5-6"/></svg>';
 
 // ===================================================================== khởi động
@@ -23,7 +23,7 @@ window.addEventListener("pywebviewready", async () => {
 });
 
 window.onEvents = (batch) => {
-  let dirty = false, bankDirty = false;
+  let dirty = false;
   for (const e of batch) {
     if (e.type === "log") {
       S.logs.push(e);
@@ -37,16 +37,10 @@ window.onEvents = (batch) => {
       dirty = true;
     } else if (e.type === "done") {
       S.running.delete(e.name); dirty = true;
-    } else if (e.type === "bank") {
-      if (e.kind === "reset") S.bank = e.data;
-      else if (e.kind === "add") S.bank.push(e.data);
-      else if (e.kind === "update") { const i = S.bank.findIndex((r) => r.id === e.data.id); if (i >= 0) S.bank[i] = e.data; }
-      bankDirty = true;
     }
   }
   if (S.logs.length > 4000) S.logs = S.logs.slice(-3000);
   if (dirty) { renderSide(); if (S.page === "dashboard") renderDashboard(); if (S.page === "profiles") renderProfiles(); }
-  if (bankDirty && S.page === "search") renderSearch();
   renderLogBadge();
 };
 
@@ -63,9 +57,6 @@ function bindStatic() {
   $("#btn-run-all").onclick = () => start(null, "run");
   $("#btn-stop-all").onclick = async () => { await api().stop(null); toast("Đã gửi lệnh dừng"); };
   $("#btn-add").onclick = () => openProfileDialog(null);
-  $("#btn-gen").onclick = async () => { const r = await api().generate_queries(+$("#q-count").value || 60); S.bank = r.rows; renderSearch(); };
-  $("#btn-export").onclick = async () => { const r = await api().export_csv(); if (r.ok) toast("Đã lưu " + r.path); };
-  $("#btn-clear-hist").onclick = async () => { await api().clear_query_history(); toast("Các câu đã dùng trước đây có thể được dùng lại"); };
   $("#btn-clear-log").onclick = () => { S.logs = []; S.unreadErr = 0; renderLog(); renderLogBadge(); };
   $("#log-filter").onchange = renderLog;
   $("#btn-save-settings").onclick = saveSettingsForm;
@@ -93,7 +84,6 @@ function renderAll() {
   renderSide();
   if (S.page === "dashboard") renderDashboard();
   if (S.page === "profiles") renderProfiles();
-  if (S.page === "search") renderSearch();
   if (S.page === "log") renderLog();
   if (S.page === "settings") renderSettings();
   renderLogBadge();
@@ -356,7 +346,7 @@ function renderToggles() {
   const ic = st(S.selected).icons || {};
   const any = (k) => Object.values(S.pstate).map((s) => (s.icons || {})[k]).find(Boolean);
   const items = [
-    ["do_quests", "Daily Set, Keep earning, Quests", "Bấm từng thẻ task, làm quiz và poll", ic["Daily Set"] || any("Daily Set")],
+    ["do_quests", "Daily Set, Keep earning", "Bấm từng thẻ task, làm quiz và poll", ic["Daily Set"] || any("Daily Set")],
     ["do_pc", "Search PC", "Tìm đến khi đủ điểm search máy tính", ic["Tìm kiếm"] || any("Tìm kiếm")],
     ["do_mobile", "Search Mobile", "Giả lập điện thoại, tìm đến khi đủ điểm", ic["Mobile"] || any("Mobile")],
     ["do_images", "Search ảnh", "Tìm trên Bing Images, mở xem ảnh", ic["Visual Search"] || any("Visual Search")],
@@ -405,16 +395,6 @@ function openProfileDialog(p) {
   dlg._sync(); dlg.showModal(); f.name.select();
 }
 window.openProfileDialog = openProfileDialog; window.go = go;
-
-// ===================================================================== bảng search
-function renderSearch() {
-  const used = S.bank.filter((r) => r.used_by).length;
-  $("#q-info").textContent = `${S.catalog.categories} lĩnh vực, ${fmt(S.catalog.queries)} câu khả dụng. Bảng hiện có ${S.bank.length} câu, đã dùng ${used}. `
-    + `Không câu nào trùng nhau, và câu đã tìm sẽ không lặp lại trong ${S.settings.history_days} ngày.`;
-  $("#q-table tbody").innerHTML = S.bank.map((r) => `
-    <tr class="${r.used_by ? "used" : ""}"><td class="r">${r.id}</td><td><span class="cat">${esc(r.category)}</span></td>
-    <td>${esc(r.query)}</td><td>${esc(r.used_by)}</td></tr>`).join("");
-}
 
 // ===================================================================== nhật ký
 function renderLog() {

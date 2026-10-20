@@ -1,7 +1,7 @@
 """Đọc trạng thái từ giao diện Microsoft Rewards mới (rewards.bing.com/dashboard và /earn).
 
 Trang mới không còn API JSON công khai; dữ liệu được lấy từ các thẻ (link/nút) trên trang,
-nhóm theo tiêu đề H2 của từng mục: "Daily set", "Your activity", "Keep earning", "Quests"...
+nhóm theo tiêu đề H2 của từng mục: "Daily set", "Your activity", "Keep earning"...
 """
 
 import re
@@ -72,13 +72,6 @@ def parse_page(items: list, state: dict) -> dict:
                     state["icons"].setdefault(lines[0].lower(), it["img"])
         elif sec == "streaks" and it.get("img"):
             state["icons"].setdefault("streak:" + lines[0].lower(), it["img"])
-        elif href.startswith("/earn/quest/"):
-            m = re.search(r"(\d+)\s*/\s*(\d+)\s*tasks", text)
-            title = max((l for l in lines if not l.lower().startswith("expires") and not _NUM.match(l)
-                         and "tasks" not in l), key=len, default=lines[0])
-            if m:
-                state["quests"].append({"title": title, "href": href, "progress": int(m.group(1)),
-                                        "max": int(m.group(2)), "img": it.get("img", "")})
     # profile button "3,417 D" làm dự phòng cho số điểm
     if state.get("available") is None:
         for it in items:
@@ -121,7 +114,7 @@ def stats(state: dict) -> dict:
 
 
 def empty_state() -> dict:
-    return {"available": None, "today": None, "daily": [], "more": [], "activity": [], "quests": [],
+    return {"available": None, "today": None, "daily": [], "more": [], "activity": [],
             "pc": None, "mobile": None, "offers": None, "icons": {}}
 
 
@@ -157,9 +150,6 @@ def build_task_rows(state: dict) -> list:
     for a in state.get("activity", []):
         rows.append({"group": "Hoạt động", "title": a["title"], "progress": a["progress"], "max": a["max"],
                      "unit": "lượt", "done": a["progress"] >= a["max"], "img": a.get("img", "")})
-    for q in state.get("quests", []):
-        rows.append({"group": "Quests", "title": q["title"], "progress": q["progress"], "max": q["max"],
-                     "unit": "task", "done": q["progress"] >= q["max"], "img": q.get("img", "")})
     return rows
 
 

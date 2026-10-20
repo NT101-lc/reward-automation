@@ -266,37 +266,6 @@ class RewardsBot:
                     self.log(f"  lỗi task: {e}")
                 self.sleep(2, 4)
 
-    def do_quests(self, page: Page) -> None:
-        """Quests: mỗi trang quest chỉ hiện task con kế tiếp ở mục 'Activities'."""
-        todo = [q for q in self.state.get("quests", []) if q["progress"] < q["max"]]
-        self.log(f"Quests: {len(todo)} quest chưa xong")
-        for q in todo:
-            last, repeats = None, 0
-            for step in range(q["max"] - q["progress"]):
-                self.check_stop()
-                self.status(progress=f"Quest {q['title'][:25]} {q['progress'] + step + 1}/{q['max']}")
-                page.goto(REWARDS + q["href"], wait_until="domcontentloaded", timeout=60000)
-                self.sleep(4, 6)
-                acts = [it for it in page.evaluate(SCRAPE_JS)
-                        if it["section"] == "Activities" and it["tag"] == "A" and it["href"].startswith("http")]
-                if not acts:
-                    self.log(f"  Quest '{q['title'][:40]}': không có task làm được trên máy tính, bỏ qua")
-                    break
-                href = acts[0]["href"]
-                repeats = repeats + 1 if href == last else 0
-                if repeats >= 2:
-                    self.log(f"  Quest '{q['title'][:40]}': task không được ghi nhận, bỏ qua")
-                    break
-                last = href
-                self.log(f"  Quest: {q['title'][:40]} → {acts[0]['lines'][0]}")
-                try:
-                    self._open_card(page, href)
-                except (StopRequested, NotLoggedIn):
-                    raise
-                except Exception as e:
-                    self.log(f"  lỗi quest: {e}")
-                self.sleep(3, 6)
-
     # số lượt mặc định khi không đọc được Points breakdown (90 điểm PC, 60 điểm Mobile / 3 điểm mỗi lượt)
     FALLBACK_SEARCHES = {"pc": 30, "mobile": 20}
 
@@ -489,10 +458,8 @@ class RewardsBot:
             self.status(start=start)
             self.log(f"Điểm hiện tại: {start}")
 
-            if self.s.get("do_quests", True):
+            if self.s.get("do_quests", True):  # Daily Set + Keep earning
                 self.do_cards(page)
-                self.read_state(page)
-                self.do_quests(page)
                 self.read_state(page)
             if self.s.get("do_pc", True):
                 self.do_searches(page, "pc", "Search PC")

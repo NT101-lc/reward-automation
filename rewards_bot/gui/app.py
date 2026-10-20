@@ -4,13 +4,12 @@ import json
 import queue
 import time
 import tkinter as tk
-from tkinter import ttk, messagebox, filedialog
+from tkinter import ttk, messagebox
 from tkinter.scrolledtext import ScrolledText
 
 from ..core.config import DASHBOARD_FILE, HISTORY_FILE, POINTS_HISTORY_FILE, load_settings, save_settings
 from ..core.runner import Runner
 from ..search.bank import QueryBank
-from ..search.catalog import CATEGORIES, all_queries
 from .dashboard import DashboardTab
 from .dialogs import ProfileDialog
 from .theme import ACCENT, BG, CARD, OK, STATE_TAGS
@@ -37,7 +36,6 @@ class App(tk.Tk):
         self.settings = load_settings()
         self.q: queue.Queue = queue.Queue()
         self.bank = QueryBank(HISTORY_FILE, int(self.settings.get("history_days", 30)))
-        self.bank.on_change = lambda kind, payload: self.q.put(("bank", kind, payload))
         self.runner = Runner(
             self.bank,
             log=lambda n, m: self.q.put(("log", n, m)),
@@ -50,7 +48,6 @@ class App(tk.Tk):
         self._style()
         self._build()
         self._load_profiles_tree()
-        self.bank.generate(60)
         self.after(100, self._poll)
         self.protocol("WM_DELETE_WINDOW", self._on_close)
 
@@ -92,7 +89,6 @@ class App(tk.Tk):
         self.dash = DashboardTab(nb, on_refresh=self.refresh_profiles)
         nb.add(self.dash, text="  Dashboard  ")
         self._build_profiles(nb)
-        self._build_queries(nb)
         self._build_log(nb)
         self._build_settings(nb)
 
@@ -135,44 +131,13 @@ class App(tk.Tk):
         self.v_browse = tk.BooleanVar(value=self.settings["do_browse"])
         self.v_headless = tk.BooleanVar(value=self.settings["headless"])
         self.v_parallel = tk.IntVar(value=self.settings["max_parallel"])
-        for text, var in [("Daily Set + Keep earning + Quests", self.v_quests), ("Search PC", self.v_pc),
+        for text, var in [("Daily Set + Keep earning", self.v_quests), ("Search PC", self.v_pc),
                           ("Search Mobile", self.v_mobile), ("Search ảnh", self.v_images),
                           ("Browse", self.v_browse), ("Chạy ẩn", self.v_headless)]:
             ttk.Checkbutton(opts, text=text, variable=var, command=self._save_opts).pack(side="left", padx=(0, 14))
         ttk.Label(opts, text="Số profile chạy cùng lúc:", style="Card.TLabel").pack(side="left", padx=(12, 4))
         ttk.Spinbox(opts, from_=1, to=10, width=4, textvariable=self.v_parallel,
                     command=self._save_opts).pack(side="left")
-
-    def _build_queries(self, nb):
-        tab = ttk.Frame(nb, padding=10)
-        nb.add(tab, text="  Bảng search  ")
-
-        bar = ttk.Frame(tab)
-        bar.pack(fill="x", pady=(0, 8))
-        ttk.Label(bar, text="Số câu:").pack(side="left")
-        self.v_qcount = tk.IntVar(value=60)
-        ttk.Spinbox(bar, from_=10, to=500, increment=10, width=6, textvariable=self.v_qcount).pack(side="left", padx=4)
-        ttk.Button(bar, text="⟳ Tạo bảng mới", style="Accent.TButton",
-                   command=lambda: self.bank.generate(int(self.v_qcount.get()))).pack(side="left", padx=4)
-        ttk.Button(bar, text="Xuất CSV", command=self.export_csv).pack(side="left")
-        ttk.Button(bar, text="Xóa lịch sử đã dùng", command=self.clear_history).pack(side="right")
-
-        total = len(all_queries())
-        ttk.Label(tab, text=f"{len(CATEGORIES)} lĩnh vực · {total} câu khả dụng · không trùng trong bảng và "
-                            f"không lặp lại câu đã dùng trong {self.settings['history_days']} ngày. "
-                            "Các profile lấy lần lượt từ bảng, hết bảng sẽ tự sinh thêm.",
-                  foreground="#6b7280").pack(anchor="w", pady=(0, 6))
-
-        cols = ("cat", "query", "used")
-        self.qtree = ttk.Treeview(tab, columns=cols, show="headings")
-        for c, t, w in [("cat", "Lĩnh vực", 150), ("query", "Truy vấn", 480), ("used", "Đã dùng bởi", 160)]:
-            self.qtree.heading(c, text=t)
-            self.qtree.column(c, width=w)
-        self.qtree.tag_configure("used", foreground="#9ca3af")
-        sb = ttk.Scrollbar(tab, orient="vertical", command=self.qtree.yview)
-        self.qtree.configure(yscrollcommand=sb.set)
-        self.qtree.pack(side="left", fill="both", expand=True)
-        sb.pack(side="right", fill="y")
 
     def _build_log(self, nb):
         tab = ttk.Frame(nb, padding=10)
@@ -353,20 +318,6 @@ class App(tk.Tk):
         save_settings(self.settings)
         messagebox.showinfo("Đã lưu", "Đã lưu cài đặt.")
 
-    # ------------------------------------------------------------ queries tab
-    def export_csv(self):
-        path = filedialog.asksaveasfilename(defaultextension=".csv", initialfile="bang_search.csv",
-                                            filetypes=[("CSV", "*.csv")])
-        if path:
-            self.bank.export_csv(path)
-
-    def clear_history(self):
-        if messagebox.askyesno("Xóa lịch sử", "Cho phép dùng lại các câu đã tìm trước đây?"):
-            self.bank.clear_history()
-
-    def _qrow_values(self, r):
-        return r["category"], r["query"], r["used_by"]
-
     # ------------------------------------------------------------ log
     def _append_log(self, name, msg):
         entry = (time.strftime("%H:%M:%S"), name, msg)
@@ -462,15 +413,6 @@ class App(tk.Tk):
                         self._save_cache()
                 elif kind == "done":
                     self._refresh_dashboard()
-                elif kind == "bank":
-                    if a == "reset":
-                        self.qtree.delete(*self.qtree.get_children())
-                        for r in b:
-                            self.qtree.insert("", "end", iid=str(r["id"]), values=self._qrow_values(r))
-                    elif a == "add":
-                        self.qtree.insert("", "end", iid=str(b["id"]), values=self._qrow_values(b))
-                    elif a == "update" and self.qtree.exists(str(b["id"])):
-                        self.qtree.item(str(b["id"]), values=self._qrow_values(b), tags=("used",))
         except queue.Empty:
             pass
         self.after(150, self._poll)

@@ -1,6 +1,6 @@
 """Giao diện web (pywebview + Edge WebView2). Python giữ toàn bộ logic, JS chỉ hiển thị.
 
-JS gọi Python qua window.pywebview.api.<hàm>(); Python đẩy sự kiện (log, trạng thái, bảng search)
+JS gọi Python qua window.pywebview.api.<hàm>(); Python đẩy sự kiện (log, trạng thái)
 sang JS theo lô mỗi 250ms qua window.onEvents([...]).
 """
 
@@ -16,7 +16,6 @@ from ..core.config import (DASHBOARD_FILE, HISTORY_FILE, POINTS_HISTORY_FILE, lo
                            save_settings)
 from ..core.runner import Runner
 from ..search.bank import QueryBank
-from ..search.catalog import CATEGORIES, all_queries
 
 WEB_DIR = Path(__file__).resolve().parent / "web"
 SETTING_KEYS = ("search_delay_min", "search_delay_max", "extra_searches", "browser_channel", "headless",
@@ -46,8 +45,8 @@ class Api:
         self._window = None
         self._settings = load_settings()
         self._events: queue.Queue = queue.Queue()
+        # câu search vẫn sinh tự động (đa lĩnh vực, không trùng) dù không còn trang bảng search
         self._bank = QueryBank(HISTORY_FILE, int(self._settings.get("history_days", 30)))
-        self._bank.on_change = lambda kind, payload: self._events.put({"type": "bank", "kind": kind, "data": payload})
         self._runner = Runner(
             self._bank,
             log=lambda n, m: self._events.put({"type": "log", "name": n, "msg": m, "time": time.strftime("%H:%M:%S")}),
@@ -58,7 +57,6 @@ class Api:
         self._pstate = {n: {"state": "Sẵn sàng", "progress": "", **d} for n, d in cache.items()}
         self._history = _load_json(POINTS_HISTORY_FILE)
         self._lock = threading.Lock()
-        self._bank.generate(60)
 
     # ------------------------------------------------------------ nội bộ
     def _on_status(self, name: str, data: dict) -> None:
@@ -102,8 +100,6 @@ class Api:
                 "pstate": self._pstate,
                 "history": self._history,
                 "running": list(self._runner.running),
-                "bank": self._bank.rows,
-                "catalog": {"categories": len(CATEGORIES), "queries": len(all_queries())},
             }
 
     def save_profile(self, old_name, profile: dict) -> dict:
@@ -149,22 +145,6 @@ class Api:
         self._bank.history_days = int(self._settings["history_days"])
         save_settings(self._settings)
         return {"ok": True, "settings": {k: self._settings.get(k) for k in SETTING_KEYS}}
-
-    def generate_queries(self, n: int) -> dict:
-        return {"ok": True, "rows": self._bank.generate(int(n))}
-
-    def clear_query_history(self) -> dict:
-        self._bank.clear_history()
-        return {"ok": True}
-
-    def export_csv(self) -> dict:
-        res = self._window.create_file_dialog(webview.SAVE_DIALOG, save_filename="bang_search.csv",
-                                              file_types=("CSV (*.csv)",))
-        if not res:
-            return {"ok": False}
-        path = res if isinstance(res, str) else res[0]
-        self._bank.export_csv(path)
-        return {"ok": True, "path": path}
 
     def profile_folder(self, name: str) -> str:
         return str(profile_dir(name))

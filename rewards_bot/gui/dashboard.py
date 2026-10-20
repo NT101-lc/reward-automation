@@ -6,7 +6,7 @@ from tkinter import ttk
 from .charts import BalanceLineChart, DailyStackChart, TodayMeters
 from .theme import ACCENT, CARD, MUTED, OK, WARN
 
-GROUP_ORDER = ["Tìm kiếm", "Daily Set", "Keep earning", "Hoạt động", "Quests", "Task thêm"]
+GROUP_ORDER = ["Tìm kiếm", "Daily Set", "Keep earning", "Hoạt động", "Task thêm"]
 
 
 def task_points(tasks: list) -> tuple:
