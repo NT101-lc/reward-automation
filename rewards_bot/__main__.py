@@ -2,32 +2,43 @@
 Microsoft Rewards Bot
 
     python -m rewards_bot                        # mở giao diện
-    python -m rewards_bot --run-all [--headless] # chạy tất cả profile không cần giao diện
+    python -m rewards_bot --run-all [--headless] # chạy tất cả tài khoản không cần giao diện
+    python -m rewards_bot --check                # kiểm tra (chẩn đoán) tất cả tài khoản, không search
 """
 
 import argparse
+import sys
+
+from .core.instance import AlreadyRunning, single_instance
 
 
 def main() -> None:
     ap = argparse.ArgumentParser(prog="rewards_bot")
-    ap.add_argument("--run-all", action="store_true", help="chạy tất cả profile không mở giao diện")
+    ap.add_argument("--run-all", action="store_true", help="chạy tất cả tài khoản không mở giao diện")
+    ap.add_argument("--check", action="store_true", help="kiểm tra tất cả tài khoản (không search)")
     ap.add_argument("--headless", action="store_true", help="chạy ẩn trình duyệt")
-    ap.add_argument("--classic", action="store_true", help="dùng giao diện tkinter cũ")
     args = ap.parse_args()
-    if args.run_all:
-        from .cli import run_cli
-        run_cli(args.headless)
-        return
-    if not args.classic:
-        try:
-            from .ui.webapp import main as web_main
-        except ImportError as e:  # chưa cài pywebview
-            print(f"Không mở được giao diện web ({e}), dùng giao diện cũ. Cài: pip install pywebview")
-        else:
+    try:
+        with single_instance():
+            if args.run_all or args.check:
+                from .cli import run_cli
+                run_cli(args.headless, action="check" if args.check else "run")
+                return
+            try:
+                from .ui.webapp import main as web_main
+            except ImportError as e:
+                print(f"Thiếu thư viện giao diện ({e}). Cài bằng: pip install -r requirements.txt")
+                sys.exit(1)
             web_main()
-            return
-    from .gui.app import App
-    App().mainloop()
+    except AlreadyRunning:
+        msg = "Rewards Bot đang chạy ở cửa sổ khác. Đóng cửa sổ đó trước khi mở lại."
+        print(msg)
+        try:
+            import ctypes
+            ctypes.windll.user32.MessageBoxW(None, msg, "Rewards Bot", 0x40)
+        except Exception:
+            pass
+        sys.exit(1)
 
 
 if __name__ == "__main__":

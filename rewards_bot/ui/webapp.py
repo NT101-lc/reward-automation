@@ -13,7 +13,9 @@ from pathlib import Path
 import webview
 
 from ..core import security
-from ..core.config import DATA_DIR, DASHBOARD_FILE, HISTORY_FILE, POINTS_HISTORY_FILE, load_settings, save_settings
+from ..core import config
+from ..core.config import (DATA_DIR, DASHBOARD_FILE, HISTORY_FILE, POINTS_HISTORY_FILE, load_settings, new_profile_dir,
+                           read_json, save_settings, write_json)
 from ..core.runner import Runner
 from ..search.bank import QueryBank
 
@@ -52,17 +54,9 @@ def _clean_setting(key, value):
     return value
 
 
-def _load_json(path: Path) -> dict:
+def _save(path: Path, data) -> None:
     try:
-        return json.loads(path.read_text(encoding="utf-8"))
-    except Exception:
-        return {}
-
-
-def _write_json(path: Path, data) -> None:
-    try:
-        path.parent.mkdir(parents=True, exist_ok=True)
-        path.write_text(json.dumps(data, ensure_ascii=False), encoding="utf-8")
+        write_json(path, data)
     except OSError:
         pass
 
@@ -82,10 +76,12 @@ class Api:
             status=self._on_status,
             done=lambda n: self._events.put({"type": "done", "name": n}),
         )
-        cache = _load_json(DASHBOARD_FILE)
+        cache = read_json(DASHBOARD_FILE, {})
         self._pstate = {n: {"state": "Sẵn sàng", "progress": "", **d} for n, d in cache.items()}
-        self._history = _load_json(POINTS_HISTORY_FILE)
+        self._history = read_json(POINTS_HISTORY_FILE, {})
         self._lock = threading.Lock()
+        for w in config.LOAD_WARNINGS:  # file dữ liệu hỏng -> báo trong nhật ký thay vì âm thầm bỏ qua
+            self._events.put({"type": "log", "name": "app", "msg": "cảnh báo: " + w, "time": time.strftime("%H:%M:%S")})
 
     # ------------------------------------------------------------ nội bộ
     def _on_status(self, name: str, data: dict) -> None:
@@ -94,10 +90,10 @@ class Api:
             st.update(data)
             if data.get("stats") and data["stats"].get("available") is not None:
                 self._history.setdefault(name, {})[time.strftime("%Y-%m-%d")] = data["stats"]
-                _write_json(POINTS_HISTORY_FILE, self._history)
+                _save(POINTS_HISTORY_FILE, self._history)
             if any(k in data for k in ("tasks", "points", "stats")):
                 keep = ("points", "today", "tasks", "stats", "icons", "updated")
-                _write_json(DASHBOARD_FILE, {n: {k: s.get(k) for k in keep if k in s} for n, s in self._pstate.items()})
+                _save(DASHBOARD_FILE, {n: {k: s.get(k) for k in keep if k in s} for n, s in self._pstate.items()})
         self._events.put({"type": "status", "name": name, "data": data,
                           "history": self._history.get(name) if "stats" in data else None})
 
@@ -152,13 +148,18 @@ class Api:
             return {"ok": False, "error": "Dừng profile trước khi sửa."}
         p = {"name": name, "mode": mode, "cdp_port": port}
         old = self._find(old_name) if old_name else None
-        if old:
-            old.update(p)
-            if old_name != name and old_name in self._pstate:
-                self._pstate[name] = self._pstate.pop(old_name)
-        else:
-            self._profiles().append(p)
-        save_settings(self._settings)
+        with self._lock:
+            if old:
+                old.update(p)  # giữ nguyên old["dir"]: đổi tên không làm mất phiên đăng nhập
+                if old_name != name:
+                    for store in (self._pstate, self._history):
+                        if old_name in store:
+                            store[name] = store.pop(old_name)
+                    _save(POINTS_HISTORY_FILE, self._history)
+            else:
+                p["dir"] = new_profile_dir(name, taken=[x.get("dir") for x in self._profiles()])
+                self._profiles().append(p)
+            save_settings(self._settings)
         return {"ok": True, "profiles": self._profiles()}
 
     def delete_profiles(self, names: list) -> dict:

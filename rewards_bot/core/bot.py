@@ -99,7 +99,7 @@ class RewardsBot:
             self.log(f"Gắn vào trình duyệt đang mở ở cổng {port} (chỉ localhost)")
             browser = p.chromium.connect_over_cdp(f"http://127.0.0.1:{port}")
             return browser.contexts[0] if browser.contexts else browser.new_context()
-        d = profile_dir(self.name)
+        d = profile_dir(self.profile)
         d.mkdir(parents=True, exist_ok=True)
         kwargs = dict(user_data_dir=str(d), headless=headless, locale="en-US",
                       viewport={"width": 1280, "height": 800},

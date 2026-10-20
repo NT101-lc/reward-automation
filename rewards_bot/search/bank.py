@@ -7,6 +7,7 @@ import threading
 from datetime import date, timedelta
 from pathlib import Path
 
+from ..core.config import read_json, write_json
 from .catalog import all_queries
 
 
@@ -24,16 +25,15 @@ class QueryBank:
 
     # ------------------------------------------------------------ history
     def _load_history(self) -> dict:
-        try:
-            data = json.loads(self.history_path.read_text(encoding="utf-8"))
-        except Exception:
-            data = {}
+        data = read_json(self.history_path, {})
         cutoff = (date.today() - timedelta(days=self.history_days)).isoformat()
         return {q: d for q, d in data.items() if d >= cutoff}
 
     def _save_history(self) -> None:
-        self.history_path.parent.mkdir(parents=True, exist_ok=True)
-        self.history_path.write_text(json.dumps(self.history, ensure_ascii=False), encoding="utf-8")
+        try:
+            write_json(self.history_path, self.history)
+        except OSError:
+            pass
 
     def clear_history(self) -> None:
         with self.lock:
