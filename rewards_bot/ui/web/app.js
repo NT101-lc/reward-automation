@@ -7,6 +7,8 @@ const api = () => window.pywebview.api;
 const $ = (s, el = document) => el.querySelector(s);
 const $$ = (s, el = document) => Array.from(el.querySelectorAll(s));
 const esc = (s) => String(s ?? "").replace(/[&<>"']/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]));
+// chỉ hiển thị ảnh https từ bing.com (dữ liệu lấy từ trang web bên ngoài nên không tin tuyệt đối)
+const safeImg = (u) => (/^https:\/\/([a-z0-9-]+\.)*bing\.com\//i.test(u || "") ? u : "");
 const fmt = (n) => (n === null || n === undefined || n === "" ? "—" : Number(n).toLocaleString("en-US"));
 const SERIES = [["pc", "Search PC", "#2a78d6"], ["mobile", "Search Mobile", "#eb6834"], ["offers", "Offers", "#1baf7a"]];
 const RUN_STATES = ["Đang chạy", "Đang chờ", "Đang làm mới", "Đang đăng nhập"];
@@ -75,6 +77,7 @@ function go(page) {
 
 async function start(names, action) {
   const r = await api().start(names, action);
+  if (r.ok === false) { toast(r.error); return; }
   r.running.forEach((n) => S.running.add(n));
   renderSide(); renderDashboard(); renderProfiles();
   toast({ run: "Bắt đầu chạy", refresh: "Đang làm mới điểm", login: "Đã mở cửa sổ đăng nhập" }[action]);
@@ -115,7 +118,8 @@ function statePill(name) {
 function renderDashboard() {
   const chips = $("#profile-chips");
   if (!S.profiles.length) {
-    chips.innerHTML = `<button class="btn primary" onclick="go('profiles'); openProfileDialog(null)">Thêm tài khoản đầu tiên</button>`;
+    chips.innerHTML = `<button class="btn primary" id="btn-first-profile">Thêm tài khoản đầu tiên</button>`;
+    $("#btn-first-profile").addEventListener("click", () => { go("profiles"); openProfileDialog(null); });
   } else {
     chips.innerHTML = S.profiles.map((p) => `
       <button class="chip ${p.name === S.selected ? "active" : ""}" data-name="${esc(p.name)}">
@@ -161,12 +165,12 @@ function renderStamps(s) {
   $("#stamp-count").textContent = `${done}/${tasks.length} dấu`;
   box.innerHTML = tasks.map((t) => `
     <div class="stamp ${t.done ? "done" : ""}" data-tip="${esc(t.title)}|${t.done ? "Đã xong" : "Chưa làm"}|+${t.max} điểm">
-      <div class="stamp-wrap"><div class="disc">${t.img ? `<img src="${esc(t.img)}" alt="" loading="lazy">` : `<span class="fallback">${esc(initials(t.title))}</span>`}</div>
+      <div class="stamp-wrap"><div class="disc">${t.img ? `<img src="${esc(safeImg(t.img))}" alt="" loading="lazy">` : `<span class="fallback">${esc(initials(t.title))}</span>`}</div>
       <span class="check">${CHECK}</span></div>
       <span class="pts">+${t.max}</span>
     </div>`).join("");
   $$(".stamp", box).forEach((el) => {
-    el.onmousemove = (e) => { const [a, b, c] = el.dataset.tip.split("|"); showTip(e, `<b>${a}</b><div class="row">${b}<span>${c}</span></div>`); };
+    el.onmousemove = (e) => { const [a, b, c] = el.dataset.tip.split("|"); showTip(e, `<b>${esc(a)}</b><div class="row">${esc(b)}<span>${esc(c)}</span></div>`); };
     el.onmouseleave = hideTip;
   });
 }
@@ -179,7 +183,7 @@ function renderMeters(s) {
   $("#meters").innerHTML = rows.map(([k, label, ic]) => {
     const p = stats[k], m = stats[k + "_max"], color = SERIES.find((x) => x[0] === k)[2];
     const img = findImg(label) || ic;
-    return `<div class="meter">${img ? `<img src="${esc(img)}" alt="">` : "<span></span>"}
+    return `<div class="meter">${img ? `<img src="${esc(safeImg(img))}" alt="">` : "<span></span>"}
       <span class="label">${label}</span><span class="val">${m ? `${p}/${m} điểm` : "chưa có dữ liệu"}</span>
       <div class="track"><div class="fill" style="width:${m ? Math.min(100, (p / m) * 100) : 0}%;background:${color}"></div></div></div>`;
   }).join("");
@@ -197,11 +201,11 @@ function renderTasks(s) {
     .map((g) => {
       const items = groups[g], d = items.filter((t) => t.done).length;
       const gi = icons[g] || items[0]?.img;
-      return `<div class="tgroup"><h3>${gi ? `<img src="${esc(gi)}" alt="">` : ""}${esc(g)}<span class="count">${d}/${items.length} xong</span></h3>
+      return `<div class="tgroup"><h3>${gi ? `<img src="${esc(safeImg(gi))}" alt="">` : ""}${esc(g)}<span class="count">${d}/${items.length} xong</span></h3>
         ${items.map((t) => {
           const pct = t.max ? Math.min(100, (t.progress / t.max) * 100) : 0;
           return `<div class="task ${t.done ? "done" : ""}">
-            ${t.img ? `<img class="thumb" src="${esc(t.img)}" alt="" loading="lazy">` : `<span class="thumb"></span>`}
+            ${t.img ? `<img class="thumb" src="${esc(safeImg(t.img))}" alt="" loading="lazy">` : `<span class="thumb"></span>`}
             <div><div class="t" title="${esc(t.title)}">${esc(t.title)}</div>
               <div class="sub">${t.progress}/${t.max} ${esc(t.unit || "điểm")}</div><div class="bar"><div style="width:${pct}%"></div></div></div>
             <span class="pill ${t.done ? "done" : "todo"}">${t.done ? "Xong" : "Chưa xong"}</span></div>`;
@@ -356,7 +360,7 @@ function renderToggles() {
       '<svg viewBox="0 0 24 24"><path d="M3 3l18 18M10.6 6.2A9.6 9.6 0 0 1 12 6c5 0 8.5 4.5 9.5 6-.5.8-1.6 2.3-3.2 3.6M6.2 7.6C4.3 9 3 11 2.5 12c1 1.5 4.5 6 9.5 6 1.6 0 3-.4 4.3-1.1"/><path d="M9.9 9.9a3 3 0 0 0 4.2 4.2"/></svg>'],
   ];
   $("#task-toggles").innerHTML = items.map(([k, t, d, img]) => `
-    <label class="toggle">${!img ? `<span class="ico"></span>` : img.startsWith("<svg") ? `<span class="ico">${img}</span>` : `<img src="${esc(img)}" alt="">`}
+    <label class="toggle">${!img ? `<span class="ico"></span>` : img.startsWith("<svg") ? `<span class="ico">${img}</span>` : `<img src="${esc(safeImg(img))}" alt="">`}
       <div><div class="tt">${t}</div><div class="td">${d}</div></div>
       <input type="checkbox" data-key="${k}" ${S.settings[k] ? "checked" : ""}></label>`).join("");
   $$("#task-toggles input").forEach((i) => (i.onchange = () => saveSettings({ [i.dataset.key]: i.checked })));
@@ -365,6 +369,8 @@ function renderToggles() {
 async function saveSettings(partial) {
   const r = await api().save_settings(partial);
   S.settings = r.settings;
+  if (!r.ok) toast(r.error);
+  return r.ok;
 }
 
 function bindProfileDialog() {
@@ -410,7 +416,7 @@ function appendLog(e) {
   const box = $("#logbox"), atBottom = box.scrollHeight - box.scrollTop - box.clientHeight < 40;
   const d = document.createElement("div");
   d.className = "l";
-  d.innerHTML = `<span class="tm">${e.time}</span> <span class="nm">${esc(e.name)}</span> <span class="${/^\s*(lỗi|cảnh báo)/i.test(e.msg) ? "er" : ""}">${esc(e.msg)}</span>`;
+  d.innerHTML = `<span class="tm">${esc(e.time)}</span> <span class="nm">${esc(e.name)}</span> <span class="${/^\s*(lỗi|cảnh báo)/i.test(e.msg) ? "er" : ""}">${esc(e.msg)}</span>`;
   box.appendChild(d);
   if (atBottom) box.scrollTop = box.scrollHeight;
 }
@@ -426,10 +432,12 @@ const SETTING_FIELDS = [
 ];
 function renderSettings() {
   $("#settings-form").innerHTML = SETTING_FIELDS.map(([k, l]) =>
-    `<label for="set-${k}">${l}</label><input type="number" min="0" id="set-${k}" data-key="${k}" value="${S.settings[k]}">`).join("")
+    `<label for="set-${k}">${l}</label><input type="number" min="0" id="set-${k}" data-key="${k}" value="${esc(S.settings[k])}">`).join("")
     + `<label for="set-browser">Trình duyệt cho cửa sổ riêng</label>
        <select id="set-browser">${[["msedge", "Microsoft Edge"], ["chrome", "Google Chrome"], ["", "Chromium"]]
-        .map(([v, t]) => `<option value="${v}" ${S.settings.browser_channel === v ? "selected" : ""}>${t}</option>`).join("")}</select>`;
+        .map(([v, t]) => `<option value="${v}" ${S.settings.browser_channel === v ? "selected" : ""}>${t}</option>`).join("")}</select>
+       <label for="set-bypass-proxy">Không đi qua proxy hệ thống (chặn proxy chen giữa)</label>
+       <input type="checkbox" id="set-bypass-proxy" ${S.settings.bypass_proxy !== false ? "checked" : ""}>`;
 }
 async function saveSettingsForm() {
   const partial = { browser_channel: $("#set-browser").value };
@@ -438,7 +446,8 @@ async function saveSettingsForm() {
     if (Number.isNaN(v) || v < 0) { toast("Ô “" + i.previousElementSibling.textContent + "” cần là số không âm"); i.focus(); return; }
     partial[i.dataset.key] = v;
   }
-  await saveSettings(partial);
+  partial.bypass_proxy = $("#set-bypass-proxy").checked;
+  const ok = await saveSettings(partial);
   renderSettings();
-  toast("Đã lưu cài đặt");
+  if (ok) toast("Đã lưu cài đặt");
 }

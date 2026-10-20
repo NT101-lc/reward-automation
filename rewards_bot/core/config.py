@@ -24,6 +24,7 @@ DEFAULT_SETTINGS = {
     "do_images": True,
     "image_searches": 6,
     "do_browse": False,
+    "bypass_proxy": True,  # trình duyệt của bot không đi qua proxy hệ thống
     "browse_minutes": 30,
     # mode: "managed" = cửa sổ riêng do app mở (data/profiles/<name>)
     #       "cdp"     = gắn vào trình duyệt đang mở với --remote-debugging-port

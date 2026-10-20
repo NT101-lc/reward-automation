@@ -3,6 +3,9 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
+<!-- Chỉ chạy script của chính app; ảnh chỉ từ bing.com; không tải/gửi dữ liệu đi đâu khác.
+     Dữ liệu (tiêu đề task...) lấy từ trang web bên ngoài nên dù lọt mã HTML cũng không chạy được. -->
+<meta http-equiv="Content-Security-Policy" content="default-src 'none'; script-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' data: https://bing.com https://*.bing.com; connect-src 'none'; frame-src 'none'; object-src 'none'; base-uri 'none'">
 <title>Microsoft Rewards Bot</title>
 <link rel="stylesheet" href="style.css">
 </head>
@@ -154,7 +157,9 @@
       <label class="radio"><input type="radio" name="mode" value="managed" checked> Cửa sổ riêng do app mở</label>
       <label class="radio"><input type="radio" name="mode" value="cdp"> Gắn vào Edge đang mở (cổng debug)</label>
     </fieldset>
-    <label id="pd-port">Cổng debug<input name="cdp_port" type="number" value="9222"></label>
+    <label id="pd-port">Cổng debug<input name="cdp_port" type="number" value="9222" min="1024" max="65535">
+      <small class="muted">Mọi chương trình trên máy đều điều khiển được Edge qua cổng này. Chỉ mở Edge debug khi
+      cần chạy bot, và không dùng <code>--remote-debugging-address</code> (sẽ lộ cổng ra mạng LAN).</small></label>
     <p class="error" id="pd-error"></p>
     <div class="dlg-actions">
       <button class="btn ghost" value="cancel" formnovalidate>Hủy</button>

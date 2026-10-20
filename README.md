@@ -61,6 +61,20 @@ các tài khoản không tìm cùng một câu, và câu đã dùng không lặp
   (Edge không cho debug trên profile mặc định, nên phải dùng `--user-data-dir` riêng.)
 
 
+## Bảo mật
+
+- **Thư mục `data/`** (phiên đăng nhập, cookie Microsoft) được khóa quyền ngay lần chạy đầu: chỉ tài khoản Windows
+  của bạn và SYSTEM đọc được. Thư mục này không bao giờ được commit lên git.
+- **Proxy**: trình duyệt của bot chạy với `--no-proxy-server`, bỏ qua proxy hệ thống và file PAC. Nếu máy đang bật
+  proxy, nhật ký sẽ ghi lại để bạn biết. Muốn đi qua proxy (mạng công ty), tắt tùy chọn này trong trang Cài đặt.
+- **HTTPS** luôn được kiểm tra chứng chỉ, nên proxy chen giữa dùng chứng chỉ giả sẽ bị chặn.
+- **Giao diện** có Content-Security-Policy: chỉ chạy script của app, chỉ tải ảnh từ bing.com. Dữ liệu lấy từ trang
+  Rewards luôn được escape. Mọi giá trị giao diện gửi xuống Python (cài đặt, tên tài khoản, cổng, lệnh) đều được kiểm tra.
+- **Chế độ Gắn vào Edge đang mở**: cổng debug cho phép mọi chương trình trên máy điều khiển Edge. Bot chỉ kết nối qua
+  `127.0.0.1` và từ chối chạy nếu cổng bị mở ra mạng LAN. Chỉ bật Edge debug khi cần chạy bot.
+- Giới hạn: phần mềm độc hại chạy dưới chính tài khoản Windows của bạn vẫn có thể đọc dữ liệu của bạn. Hãy giữ
+  Windows và phần mềm diệt virus cập nhật.
+
 ## Chạy tự động hằng ngày (không mở giao diện)
 
 ```bash

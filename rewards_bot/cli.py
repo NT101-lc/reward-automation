@@ -3,12 +3,14 @@
 import threading
 import time
 
-from .core.config import HISTORY_FILE, load_settings
+from .core import security
+from .core.config import DATA_DIR, HISTORY_FILE, load_settings
 from .core.runner import Runner
 from .search.bank import QueryBank
 
 
 def run_cli(headless: bool) -> None:
+    security.harden_data_dir(DATA_DIR)
     settings = load_settings()
     if headless:
         settings["headless"] = True

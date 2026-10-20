@@ -8,6 +8,8 @@ from tkinter import ttk, messagebox
 from tkinter.scrolledtext import ScrolledText
 
 from ..core.config import DASHBOARD_FILE, HISTORY_FILE, POINTS_HISTORY_FILE, load_settings, save_settings
+from ..core import security
+from ..core.config import DATA_DIR
 from ..core.runner import Runner
 from ..search.bank import QueryBank
 from .dashboard import DashboardTab
@@ -33,6 +35,7 @@ class App(tk.Tk):
         self.minsize(900, 560)
         self.configure(bg=BG)
 
+        security.harden_data_dir(DATA_DIR)
         self.settings = load_settings()
         self.q: queue.Queue = queue.Queue()
         self.bank = QueryBank(HISTORY_FILE, int(self.settings.get("history_days", 30)))

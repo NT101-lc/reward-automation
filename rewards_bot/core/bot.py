@@ -9,6 +9,7 @@ from urllib.parse import quote_plus, urljoin, urlparse
 
 from playwright.sync_api import sync_playwright, BrowserContext, Page, TimeoutError as PWTimeout
 
+from . import security
 from .config import profile_dir
 from .rewards_page import (SCRAPE_JS, activity, build_task_rows, empty_state, group_icons, icon, parse_breakdown,
                            parse_page, stats)
@@ -91,16 +92,25 @@ class RewardsBot:
     # ------------------------------------------------------------ browser
     def _open(self, p, headless: bool) -> BrowserContext:
         if self.profile.get("mode") == "cdp":
-            port = int(self.profile.get("cdp_port") or 9222)
-            self.log(f"Gắn vào trình duyệt đang mở ở cổng {port}")
+            port = security.validate_port(self.profile.get("cdp_port") or 9222)
+            if security.cdp_exposed(port):
+                raise RuntimeError(f"Cổng debug {port} đang mở ra mạng LAN, máy khác có thể điều khiển trình duyệt. "
+                                   "Mở lại Edge chỉ với --remote-debugging-port (không dùng --remote-debugging-address)")
+            self.log(f"Gắn vào trình duyệt đang mở ở cổng {port} (chỉ localhost)")
             browser = p.chromium.connect_over_cdp(f"http://127.0.0.1:{port}")
             return browser.contexts[0] if browser.contexts else browser.new_context()
         d = profile_dir(self.name)
         d.mkdir(parents=True, exist_ok=True)
         kwargs = dict(user_data_dir=str(d), headless=headless, locale="en-US",
-                      viewport={"width": 1280, "height": 800})
+                      viewport={"width": 1280, "height": 800},
+                      ignore_https_errors=False,  # luôn kiểm tra chứng chỉ HTTPS, chặn proxy chen giữa giả chứng chỉ
+                      args=security.browser_args(self.s))
         if self.s.get("browser_channel"):
             kwargs["channel"] = self.s["browser_channel"]
+        if self.s.get("bypass_proxy", True):
+            proxy = security.system_proxy()
+            if proxy:
+                self.log(f"Máy đang bật proxy ({proxy}); trình duyệt của bot bỏ qua proxy này")
         return p.chromium.launch_persistent_context(**kwargs)
 
     def _close(self, ctx: BrowserContext, own: list) -> None:

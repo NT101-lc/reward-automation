@@ -12,15 +12,44 @@ from pathlib import Path
 
 import webview
 
-from ..core.config import (DASHBOARD_FILE, HISTORY_FILE, POINTS_HISTORY_FILE, load_settings, profile_dir,
-                           save_settings)
+from ..core import security
+from ..core.config import DATA_DIR, DASHBOARD_FILE, HISTORY_FILE, POINTS_HISTORY_FILE, load_settings, save_settings
 from ..core.runner import Runner
 from ..search.bank import QueryBank
 
 WEB_DIR = Path(__file__).resolve().parent / "web"
-SETTING_KEYS = ("search_delay_min", "search_delay_max", "extra_searches", "browser_channel", "headless",
-                "max_parallel", "history_days", "do_quests", "do_pc", "do_mobile", "do_images", "image_searches",
-                "do_browse", "browse_minutes")
+# Kiểu và khoảng hợp lệ của từng cài đặt: mọi giá trị từ giao diện đều được kiểm tra trước khi lưu
+SETTING_SCHEMA = {
+    "search_delay_min": (int, 1, 600), "search_delay_max": (int, 1, 600), "extra_searches": (int, 0, 20),
+    "max_parallel": (int, 1, 10), "history_days": (int, 0, 365), "image_searches": (int, 0, 50),
+    "browse_minutes": (int, 1, 240),
+    "headless": (bool,), "do_quests": (bool,), "do_pc": (bool,), "do_mobile": (bool,), "do_images": (bool,),
+    "do_browse": (bool,), "bypass_proxy": (bool,),
+    "browser_channel": (str, ("msedge", "chrome", "")),
+}
+SETTING_KEYS = tuple(SETTING_SCHEMA)
+ACTIONS = {"run", "refresh", "login"}
+NAME_MAX = 40
+BAD_NAME_CHARS = set('\\/:*?"<>|')  # ký tự không hợp lệ trong tên thư mục Windows
+
+
+def _clean_setting(key, value):
+    """Trả về giá trị đã kiểm tra, hoặc raise ValueError."""
+    kind, *rule = SETTING_SCHEMA[key]
+    if kind is bool:
+        if not isinstance(value, bool):
+            raise ValueError(f"{key} phải là bật/tắt")
+        return value
+    if kind is int:
+        if isinstance(value, bool) or not isinstance(value, (int, float)) or int(value) != value:
+            raise ValueError(f"{key} phải là số nguyên")
+        lo, hi = rule
+        if not lo <= value <= hi:
+            raise ValueError(f"{key} phải trong khoảng {lo}-{hi}")
+        return int(value)
+    if value not in rule[0]:
+        raise ValueError(f"{key} không hợp lệ")
+    return value
 
 
 def _load_json(path: Path) -> dict:
@@ -103,14 +132,25 @@ class Api:
             }
 
     def save_profile(self, old_name, profile: dict) -> dict:
-        name = (profile.get("name") or "").strip()
+        if not isinstance(profile, dict):
+            return {"ok": False, "error": "Dữ liệu không hợp lệ."}
+        name = str(profile.get("name") or "").strip()
         if not name:
             return {"ok": False, "error": "Nhập tên profile."}
+        if len(name) > NAME_MAX or BAD_NAME_CHARS & set(name) or not name.isprintable():
+            return {"ok": False, "error": f'Tên tối đa {NAME_MAX} ký tự, không chứa các ký tự {" ".join(sorted(BAD_NAME_CHARS))}'}
+        mode = profile.get("mode", "managed")
+        if mode not in ("managed", "cdp"):
+            return {"ok": False, "error": "Chế độ không hợp lệ."}
+        try:
+            port = security.validate_port(profile.get("cdp_port") or 9222)
+        except ValueError as e:
+            return {"ok": False, "error": str(e)}
         if name != old_name and self._find(name):
             return {"ok": False, "error": "Đã có profile tên này."}
         if old_name and self._runner.is_running(old_name):
             return {"ok": False, "error": "Dừng profile trước khi sửa."}
-        p = {"name": name, "mode": profile.get("mode", "managed"), "cdp_port": int(profile.get("cdp_port") or 9222)}
+        p = {"name": name, "mode": mode, "cdp_port": port}
         old = self._find(old_name) if old_name else None
         if old:
             old.update(p)
@@ -122,12 +162,14 @@ class Api:
         return {"ok": True, "profiles": self._profiles()}
 
     def delete_profiles(self, names: list) -> dict:
-        names = [n for n in names if not self._runner.is_running(n)]
+        names = [n for n in (names or []) if isinstance(n, str) and not self._runner.is_running(n)]
         self._settings["profiles"] = [p for p in self._profiles() if p["name"] not in names]
         save_settings(self._settings)
         return {"ok": True, "profiles": self._profiles()}
 
     def start(self, names, action: str = "run") -> dict:
+        if action not in ACTIONS:
+            return {"ok": False, "error": "Lệnh không hợp lệ", "running": list(self._runner.running)}
         profs = self._profiles() if not names else [p for p in map(self._find, names) if p]
         self._runner.start(profs, dict(self._settings), action=action)
         return {"ok": True, "running": list(self._runner.running)}
@@ -137,20 +179,20 @@ class Api:
         return {"ok": True}
 
     def save_settings(self, partial: dict) -> dict:
-        for k, v in partial.items():
-            if k in SETTING_KEYS:
-                self._settings[k] = v
+        try:
+            clean = {k: _clean_setting(k, v) for k, v in (partial or {}).items() if k in SETTING_SCHEMA}
+        except ValueError as e:
+            return {"ok": False, "error": str(e), "settings": {k: self._settings.get(k) for k in SETTING_KEYS}}
+        self._settings.update(clean)
         if self._settings["search_delay_max"] < self._settings["search_delay_min"]:
             self._settings["search_delay_max"] = self._settings["search_delay_min"]
         self._bank.history_days = int(self._settings["history_days"])
         save_settings(self._settings)
         return {"ok": True, "settings": {k: self._settings.get(k) for k in SETTING_KEYS}}
 
-    def profile_folder(self, name: str) -> str:
-        return str(profile_dir(name))
-
 
 def main() -> None:
+    security.harden_data_dir(DATA_DIR)
     api = Api()
     window = webview.create_window("Microsoft Rewards Bot", url=str(WEB_DIR / "index.html"), js_api=api,
                                    width=1320, height=880, min_size=(1020, 680), background_color="#F5F6FA")
@@ -161,4 +203,6 @@ def main() -> None:
 
     window.events.closing += on_closing
     threading.Thread(target=api._pump, daemon=True).start()
-    webview.start(gui="edgechromium", debug=False)
+    # http_server: pywebview phục vụ thư mục web/ qua 127.0.0.1 (cổng ngẫu nhiên) để CSP 'self' áp dụng được;
+    # trang mở bằng file:// thì Chromium không coi là 'self' và chặn luôn app.js
+    webview.start(gui="edgechromium", debug=False, http_server=True)
