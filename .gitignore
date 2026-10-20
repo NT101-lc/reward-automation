@@ -1,0 +1,8 @@
+# dữ liệu người dùng: phiên đăng nhập, cài đặt, lịch sử search
+data/
+
+__pycache__/
+*.py[cod]
+.venv/
+venv/
+*.csv

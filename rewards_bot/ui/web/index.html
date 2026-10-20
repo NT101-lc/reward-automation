@@ -1,0 +1,191 @@
+<!doctype html>
+<html lang="vi">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Microsoft Rewards Bot</title>
+<link rel="stylesheet" href="style.css">
+</head>
+<body>
+<div class="app">
+  <aside class="side">
+    <div class="brand">
+      <svg class="medal" viewBox="0 0 32 32" aria-hidden="true">
+        <path d="M10 2h5l-3 9H7zM17 2h5l3 9h-5z" fill="#4f7fd6"/>
+        <circle cx="16" cy="19" r="10" fill="#e9a400"/>
+        <circle cx="16" cy="19" r="6.5" fill="none" stroke="#fff3cc" stroke-width="1.6"/>
+      </svg>
+      <div>
+        <strong>Rewards Bot</strong>
+        <span id="brand-sub">0 profile</span>
+      </div>
+    </div>
+    <nav>
+      <button data-page="dashboard" class="active">
+        <svg viewBox="0 0 24 24"><path d="M4 13h7V4H4zm9 7h7v-9h-7zM4 20h7v-5H4zm9-11h7V4h-7z"/></svg>Tổng quan</button>
+      <button data-page="profiles">
+        <svg viewBox="0 0 24 24"><circle cx="9" cy="8" r="3.5"/><path d="M2.5 20c.6-3.6 3.3-5.5 6.5-5.5s5.9 1.9 6.5 5.5"/><circle cx="17.5" cy="9" r="2.6"/><path d="M16 14.6c2.8-.3 5 1.3 5.6 4.4"/></svg>Tài khoản</button>
+      <button data-page="search">
+        <svg viewBox="0 0 24 24"><circle cx="10.5" cy="10.5" r="6"/><path d="m15 15 5.5 5.5"/></svg>Bảng search</button>
+      <button data-page="log">
+        <svg viewBox="0 0 24 24"><path d="M5 5h14M5 10h14M5 15h9M5 20h6"/></svg>Nhật ký<span class="badge" id="log-badge" hidden></span></button>
+      <button data-page="settings">
+        <svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="3"/><path d="M12 2.5v3M12 18.5v3M2.5 12h3M18.5 12h3M5.3 5.3l2.1 2.1M16.6 16.6l2.1 2.1M5.3 18.7l2.1-2.1M16.6 7.4l2.1-2.1"/></svg>Cài đặt</button>
+    </nav>
+    <div class="side-foot">
+      <div class="run-state" id="run-state"><span class="dot"></span><span>Đang nghỉ</span></div>
+    </div>
+  </aside>
+
+  <main>
+    <!-- ======================== Tổng quan ======================== -->
+    <section class="page" id="page-dashboard">
+      <header class="top">
+        <div class="chips" id="profile-chips"></div>
+        <div class="actions">
+          <button class="btn ghost" id="btn-refresh" title="Chỉ đọc điểm, không làm task">Làm mới</button>
+          <button class="btn primary" id="btn-run-one">Chạy tài khoản này</button>
+        </div>
+      </header>
+
+      <div class="hero">
+        <div class="balance">
+          <div class="who"><span class="avatar big" id="hero-avatar"></span>
+            <div><h1 id="hero-name">—</h1><p id="hero-state" class="muted">—</p></div>
+          </div>
+          <div class="figure">
+            <span class="num" id="hero-points">—</span><span class="unit">điểm</span>
+          </div>
+          <dl class="mini">
+            <div><dt>Hôm nay</dt><dd id="hero-today">—</dd></div>
+            <div><dt>Tháng này</dt><dd id="hero-month">—</dd></div>
+            <div><dt>Trọn đời</dt><dd id="hero-life">—</dd></div>
+          </dl>
+        </div>
+        <div class="stampcard">
+          <div class="stamp-head">
+            <h2>Thẻ đóng dấu hôm nay</h2>
+            <span id="stamp-count" class="muted"></span>
+          </div>
+          <div class="stamps" id="stamps"></div>
+          <div class="meters" id="meters"></div>
+        </div>
+      </div>
+
+      <div class="grid2">
+        <div class="panel">
+          <div class="panel-head"><h2>Điểm mỗi ngày</h2><div class="legend" id="legend-daily"></div></div>
+          <div class="chart" id="chart-daily"></div>
+        </div>
+        <div class="panel">
+          <div class="panel-head"><h2>Số điểm hiện có</h2><span class="muted">30 ngày</span></div>
+          <div class="chart" id="chart-balance"></div>
+        </div>
+      </div>
+
+      <div class="panel">
+        <div class="panel-head"><h2>Task hôm nay</h2><span class="muted" id="tasks-updated"></span></div>
+        <div id="task-groups" class="task-groups"></div>
+      </div>
+    </section>
+
+    <!-- ======================== Tài khoản ======================== -->
+    <section class="page" id="page-profiles" hidden>
+      <header class="top">
+        <h1 class="page-title">Tài khoản</h1>
+        <div class="actions">
+          <button class="btn ghost" id="btn-add">Thêm tài khoản</button>
+          <button class="btn danger" id="btn-stop-all">Dừng tất cả</button>
+          <button class="btn primary" id="btn-run-all">Chạy tất cả</button>
+        </div>
+      </header>
+      <div class="panel flush">
+        <table class="table" id="profile-table">
+          <thead><tr><th></th><th>Tài khoản</th><th>Chế độ</th><th>Trạng thái</th><th class="r">Điểm</th><th class="r">Hôm nay</th><th>Tiến độ</th><th></th></tr></thead>
+          <tbody></tbody>
+        </table>
+      </div>
+      <div class="panel">
+        <div class="panel-head"><h2>Việc bot sẽ làm khi chạy</h2></div>
+        <div class="toggles" id="task-toggles"></div>
+        <div class="inline-field">
+          <label for="max-parallel">Số tài khoản chạy cùng lúc</label>
+          <input type="number" id="max-parallel" min="1" max="10">
+        </div>
+      </div>
+    </section>
+
+    <!-- ======================== Bảng search ======================== -->
+    <section class="page" id="page-search" hidden>
+      <header class="top">
+        <h1 class="page-title">Bảng search</h1>
+        <div class="actions">
+          <input type="number" id="q-count" min="10" max="500" step="10" value="60" class="num-input" aria-label="Số câu">
+          <button class="btn primary" id="btn-gen">Tạo bảng mới</button>
+          <button class="btn ghost" id="btn-export">Xuất CSV</button>
+          <button class="btn ghost" id="btn-clear-hist">Cho dùng lại câu cũ</button>
+        </div>
+      </header>
+      <p class="muted lead" id="q-info"></p>
+      <div class="panel flush scroll">
+        <table class="table" id="q-table">
+          <thead><tr><th class="r">#</th><th>Lĩnh vực</th><th>Câu tìm kiếm</th><th>Đã dùng bởi</th></tr></thead>
+          <tbody></tbody>
+        </table>
+      </div>
+    </section>
+
+    <!-- ======================== Nhật ký ======================== -->
+    <section class="page" id="page-log" hidden>
+      <header class="top">
+        <h1 class="page-title">Nhật ký</h1>
+        <div class="actions">
+          <select id="log-filter"></select>
+          <button class="btn ghost" id="btn-clear-log">Xóa nhật ký</button>
+        </div>
+      </header>
+      <div class="logbox" id="logbox"></div>
+    </section>
+
+    <!-- ======================== Cài đặt ======================== -->
+    <section class="page" id="page-settings" hidden>
+      <header class="top"><h1 class="page-title">Cài đặt</h1>
+        <div class="actions"><button class="btn primary" id="btn-save-settings">Lưu cài đặt</button></div>
+      </header>
+      <div class="grid2">
+        <div class="panel form" id="settings-form"></div>
+        <div class="panel help">
+          <h2>Chạy nhiều cửa sổ cùng lúc</h2>
+          <p><strong>Cửa sổ riêng</strong> (nên dùng): mỗi tài khoản có thư mục riêng trong <code>data/profiles</code>. Bấm <em>Đăng nhập</em> một lần cho mỗi tài khoản rồi chạy.</p>
+          <p><strong>Gắn vào Edge đang mở</strong>: tự mở Edge với cổng debug và thư mục riêng, đăng nhập trong đó, rồi thêm tài khoản chế độ này với cổng tương ứng:</p>
+          <pre>msedge.exe --remote-debugging-port=9222 --user-data-dir="C:\EdgeRewards1"</pre>
+        </div>
+      </div>
+    </section>
+  </main>
+</div>
+
+<div class="tooltip" id="tooltip" hidden></div>
+
+<dialog id="profile-dialog">
+  <form method="dialog" id="profile-form">
+    <h2 id="pd-title">Thêm tài khoản</h2>
+    <label>Tên<input name="name" required maxlength="40"></label>
+    <fieldset>
+      <legend>Cách mở trình duyệt</legend>
+      <label class="radio"><input type="radio" name="mode" value="managed" checked> Cửa sổ riêng do app mở</label>
+      <label class="radio"><input type="radio" name="mode" value="cdp"> Gắn vào Edge đang mở (cổng debug)</label>
+    </fieldset>
+    <label id="pd-port">Cổng debug<input name="cdp_port" type="number" value="9222"></label>
+    <p class="error" id="pd-error"></p>
+    <div class="dlg-actions">
+      <button class="btn ghost" value="cancel" formnovalidate>Hủy</button>
+      <button class="btn primary" value="ok" id="pd-save">Lưu</button>
+    </div>
+  </form>
+</dialog>
+
+<div class="toast" id="toast" hidden></div>
+<script src="app.js"></script>
+</body>
+</html>
