@@ -276,6 +276,33 @@ class RewardsBot:
                     self.log(f"  lỗi task: {e}")
                 self.sleep(2, 4)
 
+    # Điểm Rewards mà bing.com hiển thị ở góc phải header = điểm của tài khoản đang đăng nhập trên bing.com
+    BING_POINTS_JS = r"""() => Array.from(document.querySelectorAll('#id_h *, #rewid *, .id_button *'))
+        .map(e => e.textContent.trim()).filter(x => /^[\d,]{2,}$/.test(x)).map(x => +x.replace(/,/g, ''))"""
+
+    def bing_account_ok(self, page: Page) -> bool:
+        """Kiểm tra bing.com có đăng nhập đúng tài khoản Rewards không (nếu sai, search sẽ cộng điểm cho tài khoản khác)."""
+        rewards_pts = self.state.get("available")
+        try:
+            page.goto("https://www.bing.com/", wait_until="domcontentloaded", timeout=30000)
+            self.sleep(4, 6)
+            pts = page.evaluate(self.BING_POINTS_JS)
+        except (StopRequested, NotLoggedIn):
+            raise
+        except Exception as e:
+            self.log(f"Không kiểm tra được tài khoản trên bing.com ({e}), vẫn tiếp tục")
+            return True
+        if not pts or rewards_pts is None:
+            self.log("Không đọc được điểm trên bing.com để đối chiếu tài khoản, vẫn tiếp tục")
+            return True
+        if abs(pts[0] - rewards_pts) > 200:
+            self.log(f"Lỗi: bing.com đang đăng nhập tài khoản khác ({pts[0]:,} điểm) so với Rewards ({rewards_pts:,} điểm). "
+                     "Search sẽ cộng điểm cho tài khoản kia nên bot bỏ qua search. Bấm Đăng nhập, đăng xuất bing.com "
+                     "rồi đăng nhập lại đúng tài khoản ở tab bing.com.")
+            return False
+        self.log(f"bing.com đúng tài khoản ({pts[0]:,} điểm)")
+        return True
+
     # số lượt mặc định khi không đọc được Points breakdown (90 điểm PC, 60 điểm Mobile / 3 điểm mỗi lượt)
     FALLBACK_SEARCHES = {"pc": 30, "mobile": 20}
 
@@ -436,15 +463,17 @@ class RewardsBot:
             ctx = self._open(p, headless=False)
             page = ctx.pages[0] if ctx.pages else ctx.new_page()
             page.goto(DASHBOARD_URL)
-            self.log("Đăng nhập tài khoản Microsoft trong cửa sổ vừa mở, sau đó đóng cửa sổ")
-            while not self.stop.is_set():
+            bing = ctx.new_page()
+            bing.goto("https://www.bing.com/")
+            page.bring_to_front()
+            self.log("Đăng nhập tài khoản Microsoft ở tab Rewards, rồi sang tab bing.com kiểm tra góc phải: "
+                     "phải là CÙNG tài khoản (nếu khác thì đăng xuất và đăng nhập lại). Xong thì đóng cửa sổ.")
+            while not self.stop.is_set() and ctx.pages:
                 try:
-                    page.wait_for_event("close", timeout=1000)
-                    break
-                except PWTimeout:
-                    continue
+                    ctx.pages[0].wait_for_timeout(1000)
                 except Exception:
-                    break
+                    if not ctx.pages:
+                        break
             try:
                 ctx.close()
             except Exception:
@@ -471,21 +500,27 @@ class RewardsBot:
             if self.s.get("do_quests", True):  # Daily Set + Keep earning
                 self.do_cards(page)
                 self.read_state(page)
-            if self.s.get("do_pc", True):
-                self.do_searches(page, "pc", "Search PC")
-            if self.s.get("do_mobile", True):
-                mpage = ctx.new_page()
-                own.append(mpage)
-                self._emulate_mobile(ctx, mpage)
-                self.do_searches(mpage, "mobile", "Search Mobile", check_page=page)
-            if self.s.get("do_pc", True) or self.s.get("do_mobile", True):
-                self.read_state(page)
-            if self.s.get("do_images", True):
-                self.do_image_searches(page, int(self.s.get("image_searches", 6)))
+            wants_search = any(self.s.get(k, d) for k, d in (("do_pc", True), ("do_mobile", True), ("do_images", True)))
+            account_ok = self.bing_account_ok(page) if wants_search else True
+            if account_ok:
+                if self.s.get("do_pc", True):
+                    self.do_searches(page, "pc", "Search PC")
+                if self.s.get("do_mobile", True):
+                    mpage = ctx.new_page()
+                    own.append(mpage)
+                    self._emulate_mobile(ctx, mpage)
+                    self.do_searches(mpage, "mobile", "Search Mobile", check_page=page)
+                if self.s.get("do_pc", True) or self.s.get("do_mobile", True):
+                    self.read_state(page)
+                if self.s.get("do_images", True):
+                    self.do_image_searches(page, int(self.s.get("image_searches", 6)))
             if self.s.get("do_browse", False):
                 self.do_browse(page, int(self.s.get("browse_minutes", 30)))
 
             end = self.read_state(page)["available"] or start
+            if not account_ok:
+                self.status(state="Lỗi", progress="bing.com đăng nhập sai tài khoản")
+                return
             self.status(state="Hoàn thành", progress=f"+{end - start}")
             self.log(f"Xong! {start} -> {end} (+{end - start})")
         self._session(work, bool(self.s.get("headless")), label="Chạy")
