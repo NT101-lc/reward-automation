@@ -1,0 +1,38 @@
+{
+  "dashboard": [
+    {"section": "", "tag": "BUTTON", "href": "", "index": -1, "lines": ["3,417", "D"], "img": ""},
+    {"section": "", "tag": "A", "href": "/redeem", "index": 6, "lines": ["Available points", "3,417", "Redeem"], "img": ""},
+    {"section": "Daily set", "tag": "A", "href": "https://www.bing.com/search?q=Trip+to+Tokyo&FORM=tgrew4", "index": 10,
+     "lines": ["Tokyo Early Autumn Glow", "Seasonal flavors and gardens", "10", "Completed"],
+     "img": "https://bing.com/th?id=OMR.fallFallingLeaf.jpg&pid=Rewards"},
+    {"section": "Daily set", "tag": "A", "href": "https://www.bing.com/search?q=Trip+to+Cairns&FORM=tgrew4", "index": 11,
+     "lines": ["Cairns Reef Springtime Clear", "Clear dives and tropical blooms", "10"],
+     "img": "https://bing.com/th?id=OMR.springFlower.jpg&pid=Rewards"},
+    {"section": "Daily set", "tag": "A", "href": "https://www.bing.com/search?q=quiz&FORM=tgrew4", "index": 12,
+     "lines": ["Sapphic Flames?", "Test your knowledge in this quiz.", "+10"],
+     "img": "https://bing.com/th?id=OMR.QuestionMark.jpg&pid=Rewards"},
+    {"section": "Your activity", "tag": "BUTTON", "href": "", "index": -1, "lines": ["Bing", "Search: 1/1", "3"],
+     "img": "https://bing.com/th?id=OMR.MicrosoftProducts.Bing.svg&pid=Rewards"},
+    {"section": "Your activity", "tag": "BUTTON", "href": "", "index": -1, "lines": ["Mobile App", "Check-in: 0/1"],
+     "img": "https://bing.com/th?id=OMR.MicrosoftProducts.Bing.svg&pid=Rewards"},
+    {"section": "Your activity", "tag": "BUTTON", "href": "", "index": -1, "lines": ["Visual Search", "Activity: 1/1", "2"],
+     "img": "https://rewards.bing.com/rewardscdn/images/search_visual.svg"}
+  ],
+  "earn": [
+    {"section": "", "tag": "BUTTON", "href": "", "index": -1, "lines": ["Today's points", "97", "Points breakdown"], "img": ""},
+    {"section": "Streaks", "tag": "BUTTON", "href": "", "index": -1,
+     "lines": ["Bing App Streak", "Day 0 of 7 streak completed.", "+5", "50", "Check-in: 0/1"],
+     "img": "https://bing.com/th?id=OMR.Image.MobileCheckInStreak.png&pid=Rewards"},
+    {"section": "Keep earning", "tag": "A", "href": "https://www.bing.com/search?q=veggie+burger+recipes&form=ML2", "index": 20,
+     "lines": ["Veggie burgers", "Relish these veggie burger recipes", "15", "Completed"], "img": "https://bing.com/th?id=OMR.food.jpg"},
+    {"section": "Keep earning", "tag": "A", "href": "https://www.bing.com/search?q=Bing%20Homepage%20quiz&form=ML", "index": 21,
+     "lines": ["Do you know the answer?", "Test your knowledge on these topics", "5"], "img": "https://bing.com/th?id=OMR.QuestionMark.jpg"},
+    {"section": "Keep earning", "tag": "A", "href": "https://www.bing.com/search?q=Bing%20Homepage%20quiz&form=ML", "index": 22,
+     "lines": ["Do you know the answer?", "Challenge yourself with these trivia questions", "5"], "img": "https://bing.com/th?id=OMR.pencil.jpg"},
+    {"section": "Keep earning", "tag": "A", "href": "https://www.bing.com/apps/wallpaper", "index": 23,
+     "lines": ["New Wallpaper Every Day", "Install Bing Wallpaper today."], "img": "https://bing.com/th?id=OMR.wallpaper.png"},
+    {"section": "Quests", "tag": "A", "href": "/earn/quest/WW_pcparent_Halloween_punchcard", "index": 24,
+     "lines": ["Expires in 2 weeks", "A 50-point Halloween treat", "+50", "5/6 tasks"], "img": ""}
+  ],
+  "breakdown": "Points breakdown\nToday's points\n98\nToday's activity\nPoints\nDesktop Bing search\n60/90\nMobile Bing search\n0/60\nOffers\n38\nHistory\nPoints\nThis month\n3,243\nThis year\n3,418\nLifetime\n3,418\nHow it works"
+}

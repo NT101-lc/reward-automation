@@ -33,11 +33,12 @@ def main() -> None:
     except AlreadyRunning:
         msg = "Rewards Bot đang chạy ở cửa sổ khác. Đóng cửa sổ đó trước khi mở lại."
         print(msg)
-        try:
-            import ctypes
-            ctypes.windll.user32.MessageBoxW(None, msg, "Rewards Bot", 0x40)
-        except Exception:
-            pass
+        if not (args.run_all or args.check):  # chỉ hiện hộp thoại khi mở giao diện, không chặn lệnh chạy tự động
+            try:
+                import ctypes
+                ctypes.windll.user32.MessageBoxW(None, msg, "Rewards Bot", 0x40)
+            except Exception:
+                pass
         sys.exit(1)
 
 

@@ -15,8 +15,7 @@ Mặc định app dùng Microsoft Edge có sẵn trên Windows. Nếu muốn dù
 
 ## Sử dụng
 
-Giao diện chạy trong cửa sổ riêng bằng Edge WebView2 (có sẵn trên Windows 10/11). Nếu thiếu `pywebview`, app tự
-quay về giao diện tkinter cũ (hoặc chạy `python -m rewards_bot --classic`).
+Giao diện chạy trong cửa sổ riêng bằng Edge WebView2 (có sẵn trên Windows 10/11). Chỉ mở được 1 cửa sổ app cùng lúc.
 
 Nhấp đúp `run.bat`, hoặc:
 ```bash
@@ -24,8 +23,10 @@ python -m rewards_bot
 ```
 
 1. Trang **Tài khoản**: bấm **Thêm tài khoản** cho mỗi tài khoản Microsoft.
-2. Bấm **Đăng nhập** ở dòng tài khoản đó, đăng nhập trong cửa sổ vừa mở rồi **đóng cửa sổ** (chỉ làm 1 lần).
-3. Chọn việc bot sẽ làm ở mục "Việc bot sẽ làm khi chạy", rồi bấm **Chạy** (1 tài khoản) hoặc **Chạy tất cả**.
+2. Bấm **Đăng nhập** ở dòng tài khoản đó. Cửa sổ mở 2 tab: đăng nhập ở tab Rewards, rồi kiểm tra tab **bing.com**
+   cũng là **cùng tài khoản** (góc phải). Xong thì **đóng cửa sổ** (chỉ làm 1 lần).
+3. Bấm **Kiểm tra**: bot tự chẩn đoán (không search) và báo từng mục ✓/!/✕ kèm cách sửa.
+4. Chọn việc bot sẽ làm ở mục "Việc bot sẽ làm khi chạy", rồi bấm **Chạy** (1 tài khoản) hoặc **Chạy tất cả**.
    Ô "Số tài khoản chạy cùng lúc" giới hạn số cửa sổ chạy song song. **Dừng tất cả** để dừng.
 
 ### Trang Tổng quan
@@ -35,6 +36,17 @@ python -m rewards_bot
 - Biểu đồ điểm mỗi ngày (PC / Mobile / Offers, 14 ngày) và số điểm hiện có (30 ngày); rê chuột để xem số liệu.
 - Danh sách task hôm nay theo nhóm, có icon và trạng thái.
 - **Làm mới** chỉ đọc điểm từ Rewards (chạy ẩn), không làm task.
+- **Kiểm tra** (tự chẩn đoán, không search): đăng nhập Rewards, Points breakdown, thẻ Daily Set, bing.com có đúng
+  tài khoản không (desktop và mobile), profile có bị cửa sổ khác giữ không, proxy. Cũng chạy được bằng
+  `python -m rewards_bot --check`.
+
+### Bot tự bảo vệ khi chạy
+- Trước khi search, đối chiếu điểm trên bing.com với Rewards; **sai tài khoản thì không search** (để không cộng nhầm).
+- Cứ 3 lượt search đọc lại điểm; **6 lượt liên tiếp không được cộng thì dừng** loại search đó và ghi lý do.
+- Thẻ Daily Set / Keep earning được bấm đúng vị trí (kể cả 2 thẻ trùng tên); thẻ nào làm xong mà chưa được ghi
+  nhận sẽ được liệt kê trong nhật ký.
+- Nhật ký lưu ở `data/logs/<ngày>.log` (giữ 14 ngày) – gửi file này khi cần báo lỗi.
+- Tài khoản có thư mục phiên đăng nhập cố định: đổi tên không phải đăng nhập lại.
 - Số liệu PC/Mobile lấy từ hộp **Points breakdown** trên trang Earn. Lịch sử lưu ở `data/points_history.json`,
   dữ liệu lần cuối ở `data/dashboard.json`.
 
@@ -87,22 +99,29 @@ python -m rewards_bot --run-all --headless
 ```
 rewards-bot/
 ├── rewards_bot/
-│   ├── __main__.py         # điểm vào: python -m rewards_bot
-│   ├── cli.py              # chế độ chạy không giao diện
+│   ├── __main__.py         # điểm vào: python -m rewards_bot [--run-all | --check]
+│   ├── cli.py              # chạy không giao diện
 │   ├── core/
-│   │   ├── bot.py          # bot cho 1 tài khoản: task, search, giả lập mobile
+│   │   ├── bot.py          # bot cho 1 tài khoản: task, search, kiểm tra (diagnose)
 │   │   ├── rewards_page.py # đọc trang Rewards (điểm, task, icon, Points breakdown)
-│   │   ├── runner.py       # chạy nhiều tài khoản song song
-│   │   └── config.py       # cài đặt, danh sách tài khoản, đường dẫn dữ liệu
-│   ├── search/
-│   │   ├── catalog.py      # lĩnh vực, chủ đề, mẫu câu
-│   │   └── bank.py         # sinh câu search và lịch sử chống trùng
-│   ├── ui/
-│   │   ├── webapp.py       # cửa sổ pywebview + API cho giao diện
-│   │   └── web/            # index.html, style.css, app.js
-│   └── gui/                # giao diện tkinter cũ (--classic)
-├── data/                   # tự tạo khi chạy: settings, lịch sử, phiên đăng nhập (không commit)
-├── run.bat
+│   │   ├── runner.py       # chạy nhiều tài khoản song song + ghi log ra file
+│   │   ├── browser.py      # phát hiện trình duyệt đang giữ profile
+│   │   ├── security.py     # khóa quyền data/, proxy, cổng debug
+│   │   ├── instance.py     # chỉ 1 cửa sổ app chạy cùng lúc
+│   │   └── config.py       # cài đặt, tài khoản, đọc/ghi file an toàn
+│   ├── search/             # sinh câu search không trùng
+│   └── ui/                 # webapp.py (pywebview) + web/ (index.html, style.css, app.js)
+├── tests/                  # pytest: logic, dữ liệu, giao diện
+├── data/                   # tự tạo khi chạy (không commit)
+├── run.bat                 # mở app
+├── check.bat               # chạy test
 ├── requirements.txt
-└── README.md
+└── requirements-dev.txt
 ```
+
+## Phát triển
+
+```bash
+pip install -r requirements-dev.txt
+```
+Chạy `check.bat` (hoặc `python -m pytest -q tests`) trước mỗi lần commit.

@@ -11,7 +11,7 @@ const esc = (s) => String(s ?? "").replace(/[&<>"']/g, (c) => ({ "&": "&amp;", "
 const safeImg = (u) => (/^https:\/\/([a-z0-9-]+\.)*bing\.com\//i.test(u || "") ? u : "");
 const fmt = (n) => (n === null || n === undefined || n === "" ? "—" : Number(n).toLocaleString("en-US"));
 const SERIES = [["pc", "Search PC", "#2a78d6"], ["mobile", "Search Mobile", "#eb6834"], ["offers", "Offers", "#1baf7a"]];
-const RUN_STATES = ["Đang chạy", "Đang chờ", "Đang làm mới", "Đang đăng nhập"];
+const RUN_STATES = ["Đang chạy", "Đang chờ", "Đang làm mới", "Đang đăng nhập", "Đang kiểm tra"];
 const GROUP_ORDER = ["Tìm kiếm", "Daily Set", "Keep earning", "Hoạt động", "Task thêm"];
 const CHECK = '<svg viewBox="0 0 12 12"><path d="M2.5 6.5 5 9l4.5-6"/></svg>';
 
@@ -55,6 +55,7 @@ function toast(msg) {
 function bindStatic() {
   $$("nav button").forEach((b) => b.addEventListener("click", () => go(b.dataset.page)));
   $("#btn-refresh").onclick = () => S.selected && start([S.selected], "refresh");
+  $("#btn-check").onclick = () => S.selected && start([S.selected], "check");
   $("#btn-run-one").onclick = () => S.selected && start([S.selected], "run");
   $("#btn-run-all").onclick = () => start(null, "run");
   $("#btn-stop-all").onclick = async () => { await api().stop(null); toast("Đã gửi lệnh dừng"); };
@@ -80,7 +81,8 @@ async function start(names, action) {
   if (r.ok === false) { toast(r.error); return; }
   r.running.forEach((n) => S.running.add(n));
   renderSide(); renderDashboard(); renderProfiles();
-  toast({ run: "Bắt đầu chạy", refresh: "Đang làm mới điểm", login: "Đã mở cửa sổ đăng nhập" }[action]);
+  toast({ run: "Bắt đầu chạy", refresh: "Đang làm mới điểm", login: "Đã mở cửa sổ đăng nhập",
+          check: "Đang kiểm tra (không search)" }[action]);
 }
 
 function renderAll() {
@@ -140,6 +142,8 @@ function renderDashboard() {
   $("#hero-life").textContent = fmt(stats.lifetime);
   $("#btn-run-one").disabled = !name || S.running.has(name);
   $("#btn-refresh").disabled = !name || S.running.has(name);
+  $("#btn-check").disabled = !name || S.running.has(name);
+  renderCheck(s);
   $("#tasks-updated").textContent = s.updated ? "Cập nhật " + s.updated : "";
   renderStamps(s);
   renderMeters(s);
@@ -150,6 +154,17 @@ function renderDashboard() {
   $("#legend-daily").innerHTML = SERIES.map(([, l, c]) => `<span><i style="background:${c}"></i>${l}</span>`).join("");
   stackChart($("#chart-daily"), days.slice(-14).map((d) => ({ label: lab(d), v: hist[d] })));
   lineChart($("#chart-balance"), days.slice(-30).filter((d) => hist[d].available != null).map((d) => ({ label: lab(d), v: hist[d].available })));
+}
+
+function renderCheck(s) {
+  const panel = $("#check-panel");
+  if (!s.check || !s.check.length) { panel.hidden = true; return; }
+  panel.hidden = false;
+  $("#check-time").textContent = s.check_time ? "Lúc " + s.check_time : "";
+  const sign = { ok: "✓", warn: "!", fail: "✕" };
+  $("#check-list").innerHTML = s.check.map((c) => `
+    <li class="${esc(c.level)}"><span class="mark">${sign[c.level] || "?"}</span>
+      <span class="ct">${esc(c.title)}</span><span class="cd">${esc(c.detail)}</span></li>`).join("");
 }
 
 function renderStamps(s) {
@@ -323,6 +338,7 @@ function renderProfiles() {
         <td><div class="row-actions">
           ${run ? `<button class="btn small danger" data-act="stop">Dừng</button>`
                 : `<button class="btn small primary" data-act="run">Chạy</button>
+                   <button class="btn small ghost" data-act="check">Kiểm tra</button>
                    <button class="btn small ghost" data-act="login">Đăng nhập</button>
                    <button class="btn small ghost" data-act="edit">Sửa</button>
                    <button class="btn small ghost" data-act="del">Xóa</button>`}
@@ -333,6 +349,7 @@ function renderProfiles() {
       const act = b.dataset.act;
       if (act === "run") start([name], "run");
       else if (act === "login") start([name], "login");
+      else if (act === "check") { S.selected = name; start([name], "check"); }
       else if (act === "stop") { await api().stop([name]); toast("Đang dừng " + name); }
       else if (act === "edit") openProfileDialog(S.profiles.find((p) => p.name === name));
       else if (act === "del" && confirm(`Xóa tài khoản "${name}" khỏi app?\nPhiên đăng nhập trong data/profiles vẫn được giữ.`)) {

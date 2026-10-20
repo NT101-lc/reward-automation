@@ -48,6 +48,7 @@ class Runner:
 
         self.log, self.status, self.done = log_both, status, done
         self.running: dict = {}  # name -> stop Event
+        self.threads: dict = {}  # name -> Thread
         self.sem = None
         self.lock = threading.Lock()
 
@@ -55,7 +56,8 @@ class Runner:
         return name in self.running
 
     def start(self, profiles: list, settings: dict, action: str = "run") -> None:
-        """action: "run" (làm task), "login" (mở cửa sổ đăng nhập), "refresh" (chỉ đọc điểm)."""
+        """action: "run" (làm task), "login" (mở cửa sổ đăng nhập), "refresh" (chỉ đọc điểm),
+        "check" (tự chẩn đoán, không search)."""
         with self.lock:
             if not self.running or self.sem is None:
                 self.sem = threading.Semaphore(max(1, int(settings.get("max_parallel", 3))))
@@ -64,8 +66,9 @@ class Runner:
                     continue
                 ev = threading.Event()
                 self.running[prof["name"]] = ev
-                threading.Thread(target=self._worker, args=(dict(prof), dict(settings), ev, action),
-                                 daemon=True).start()
+                t = threading.Thread(target=self._worker, args=(dict(prof), dict(settings), ev, action), daemon=True)
+                self.threads[prof["name"]] = t
+                t.start()
 
     def _worker(self, prof, settings, ev, action) -> None:
         name = prof["name"]
@@ -76,6 +79,9 @@ class Runner:
                 return
             if action == "refresh":
                 bot.refresh()
+                return
+            if action == "check":
+                bot.diagnose()
                 return
             self.status(name, {"state": "Đang chờ", "progress": "Chờ lượt chạy"})
             with self.sem:
@@ -89,6 +95,7 @@ class Runner:
         finally:
             with self.lock:
                 self.running.pop(name, None)
+                self.threads.pop(name, None)
             self.done(name)
 
     def stop(self, names=None) -> None:
@@ -96,3 +103,10 @@ class Runner:
             for n, ev in self.running.items():
                 if names is None or n in names:
                     ev.set()
+
+    def wait(self, timeout: float) -> bool:
+        """Đợi các thread kết thúc (để trình duyệt được đóng đàng hoàng). True nếu tất cả đã dừng."""
+        deadline = time.time() + timeout
+        for t in list(self.threads.values()):
+            t.join(max(0.0, deadline - time.time()))
+        return not any(t.is_alive() for t in self.threads.values())

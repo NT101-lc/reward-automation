@@ -44,6 +44,7 @@
       <header class="top">
         <div class="chips" id="profile-chips"></div>
         <div class="actions">
+          <button class="btn ghost" id="btn-check" title="Tự chẩn đoán đăng nhập, tài khoản bing.com, điểm search. Không search.">Kiểm tra</button>
           <button class="btn ghost" id="btn-refresh" title="Chỉ đọc điểm, không làm task">Làm mới</button>
           <button class="btn primary" id="btn-run-one">Chạy tài khoản này</button>
         </div>
@@ -71,6 +72,11 @@
           <div class="stamps" id="stamps"></div>
           <div class="meters" id="meters"></div>
         </div>
+      </div>
+
+      <div class="panel check-panel" id="check-panel" hidden>
+        <div class="panel-head"><h2>Kết quả kiểm tra</h2><span class="muted" id="check-time"></span></div>
+        <ul class="checks" id="check-list"></ul>
       </div>
 
       <div class="grid2">

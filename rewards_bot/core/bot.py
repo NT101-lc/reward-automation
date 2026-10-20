@@ -10,6 +10,7 @@ from urllib.parse import quote_plus, urljoin, urlparse
 from playwright.sync_api import sync_playwright, BrowserContext, Page, TimeoutError as PWTimeout
 
 from . import security
+from .browser import ProfileInUse, free_profile
 from .config import profile_dir
 from .rewards_page import (SCRAPE_JS, activity, build_task_rows, empty_state, group_icons, icon, parse_breakdown,
                            parse_page, stats)
@@ -58,6 +59,7 @@ class RewardsBot:
         self._status = status    # status(name, dict)
         self.stop = stop
         self.state = empty_state()
+        self.stalled: set = set()  # loại search bị dừng vì không được cộng điểm
         self.local: dict = {}    # task do app tự làm: title -> {"progress","max","unit"}
 
     # ------------------------------------------------------------ helpers
@@ -101,6 +103,7 @@ class RewardsBot:
             return browser.contexts[0] if browser.contexts else browser.new_context()
         d = profile_dir(self.profile)
         d.mkdir(parents=True, exist_ok=True)
+        free_profile(d, self.log)  # đóng Edge mồ côi của bot / báo rõ nếu profile đang mở ở cửa sổ khác
         kwargs = dict(user_data_dir=str(d), headless=headless, locale="en-US",
                       viewport={"width": 1280, "height": 800},
                       ignore_https_errors=False,  # luôn kiểm tra chứng chỉ HTTPS, chặn proxy chen giữa giả chứng chỉ
@@ -145,13 +148,19 @@ class RewardsBot:
 
     # ------------------------------------------------------------ đọc trạng thái
     def _load(self, page: Page, url: str, marker: str) -> list:
+        """Mở trang Rewards và đợi nội dung chính hiện ra (theo chữ marker hoặc số điểm trong nút hồ sơ)."""
         page.goto(url, wait_until="domcontentloaded", timeout=60000)
         try:
-            page.get_by_text(marker, exact=True).first.wait_for(timeout=25000)
+            page.wait_for_function(
+                """(m) => document.body && (document.body.innerText.toLowerCase().includes(m.toLowerCase())
+                         || !!document.querySelector('button[aria-label="View profile"]'))""",
+                arg=marker, timeout=25000)
         except PWTimeout:
-            if "login" in urlparse(page.url).netloc or "Sign in" in page.content():
+            host = urlparse(page.url).netloc
+            if "login" in host or "microsoftonline" in host or page.locator("text=Sign in").count():
                 raise NotLoggedIn()
-            raise RuntimeError(f"Không đọc được trang {url} (Rewards có thể đã đổi giao diện)")
+            raise RuntimeError(f"Trang {urlparse(url).path} không có mục '{marker}' sau 25 giây "
+                               "(mạng chậm hoặc Rewards đã đổi giao diện)")
         self.sleep(1.5, 2.5)
         return page.evaluate(SCRAPE_JS)
 
@@ -159,8 +168,13 @@ class RewardsBot:
         """Đọc điểm + trạng thái task từ /dashboard và /earn."""
         st = empty_state()
         parse_page(self._load(page, DASHBOARD_URL, "Available points"), st)
-        parse_page(self._load(page, EARN_URL, "Today's points"), st)
-        self._read_breakdown(page, st)
+        try:  # trang Earn là phần phụ: lỗi thì vẫn chạy tiếp với dữ liệu từ Dashboard
+            parse_page(self._load(page, EARN_URL, "Today's points"), st)
+            self._read_breakdown(page, st)
+        except (StopRequested, NotLoggedIn):
+            raise
+        except Exception as e:
+            self.log(f"cảnh báo: không đọc được trang Earn ({e}); Keep earning và điểm PC/Mobile có thể thiếu")
         self.state = st
         self.status(points=st["available"] if st["available"] is not None else "")
         self.report()
@@ -235,9 +249,22 @@ class RewardsBot:
                 tab.mouse.wheel(0, random.randint(300, 800))
                 self.sleep(2, 4)
 
-    def _open_card(self, page: Page, href: str) -> None:
+    @staticmethod
+    def _card_locator(page: Page, card: dict):
+        """Đúng thẻ cần bấm: ưu tiên theo vị trí (kiểm tra tiêu đề khớp), không thì thẻ thứ n cùng tiêu đề + link."""
+        if card.get("index", -1) >= 0:
+            loc = page.locator("a").nth(card["index"])
+            try:
+                if loc.inner_text(timeout=3000).split("\n")[0].strip() == card["title"]:
+                    return loc
+            except Exception:
+                pass
+        return page.locator(f"a[href={json.dumps(card['href'])}]", has_text=card["title"]).nth(card.get("dup", 0))
+
+    def _open_card(self, page: Page, card: dict) -> None:
         """Bấm thẻ task trên trang Rewards (mở tab mới), làm task, rồi đóng tab."""
-        link = page.locator(f"a[href={json.dumps(href)}]").first
+        href = card["href"]
+        link = self._card_locator(page, card)
         tab = None
         try:
             with page.context.expect_page(timeout=15000) as info:
@@ -269,7 +296,7 @@ class RewardsBot:
                 self.log(f"  {group}: {c['title']} (+{c['points']})")
                 try:
                     self._load(page, url, marker)
-                    self._open_card(page, c["href"])
+                    self._open_card(page, c)
                 except (StopRequested, NotLoggedIn):
                     raise
                 except Exception as e:
@@ -280,8 +307,8 @@ class RewardsBot:
     BING_POINTS_JS = r"""() => Array.from(document.querySelectorAll('#id_h *, #rewid *, .id_button *'))
         .map(e => e.textContent.trim()).filter(x => /^[\d,]{2,}$/.test(x)).map(x => +x.replace(/,/g, ''))"""
 
-    def bing_account_ok(self, page: Page) -> bool:
-        """Kiểm tra bing.com có đăng nhập đúng tài khoản Rewards không (nếu sai, search sẽ cộng điểm cho tài khoản khác)."""
+    def bing_account_check(self, page: Page) -> tuple:
+        """(level, chi tiết): bing.com có đăng nhập đúng tài khoản Rewards không. level: ok / warn / fail."""
         rewards_pts = self.state.get("available")
         try:
             page.goto("https://www.bing.com/", wait_until="domcontentloaded", timeout=30000)
@@ -290,18 +317,25 @@ class RewardsBot:
         except (StopRequested, NotLoggedIn):
             raise
         except Exception as e:
-            self.log(f"Không kiểm tra được tài khoản trên bing.com ({e}), vẫn tiếp tục")
-            return True
+            return "warn", f"không mở được bing.com để đối chiếu ({e})"
         if not pts or rewards_pts is None:
-            self.log("Không đọc được điểm trên bing.com để đối chiếu tài khoản, vẫn tiếp tục")
-            return True
+            return "warn", "không đọc được điểm trên bing.com để đối chiếu tài khoản"
         if abs(pts[0] - rewards_pts) > 200:
-            self.log(f"Lỗi: bing.com đang đăng nhập tài khoản khác ({pts[0]:,} điểm) so với Rewards ({rewards_pts:,} điểm). "
-                     "Search sẽ cộng điểm cho tài khoản kia nên bot bỏ qua search. Bấm Đăng nhập, đăng xuất bing.com "
-                     "rồi đăng nhập lại đúng tài khoản ở tab bing.com.")
+            return "fail", (f"bing.com đang đăng nhập tài khoản khác ({pts[0]:,} điểm, Rewards là {rewards_pts:,}). "
+                            "Search sẽ cộng điểm cho tài khoản kia. Bấm Đăng nhập, đăng xuất ở tab bing.com "
+                            "rồi đăng nhập lại đúng tài khoản")
+        return "ok", f"cùng tài khoản ({pts[0]:,} điểm)"
+
+    def bing_account_ok(self, page: Page) -> bool:
+        level, detail = self.bing_account_check(page)
+        if level == "fail":
+            self.log("Lỗi: " + detail + ". Bot bỏ qua phần search.")
             return False
-        self.log(f"bing.com đúng tài khoản ({pts[0]:,} điểm)")
+        self.log(("bing.com " + detail) if level == "ok" else ("cảnh báo: " + detail + ", vẫn tiếp tục"))
         return True
+
+    CHECK_EVERY = 3   # cứ bao nhiêu lượt search thì đọc lại điểm
+    STALL_AFTER = 6   # bao nhiêu lượt liên tiếp không được cộng điểm thì dừng
 
     # số lượt mặc định khi không đọc được Points breakdown (90 điểm PC, 60 điểm Mobile / 3 điểm mỗi lượt)
     FALLBACK_SEARCHES = {"pc": 30, "mobile": 20}
@@ -340,20 +374,27 @@ class RewardsBot:
             self.log(f"{label}: đã đủ điểm search")
             return
         count = need + int(self.s.get("extra_searches", 0))
-        start = (self.state.get(kind) or {}).get("progress")
-        self.log(f"{label}: {count} lượt search")
+        cur = self.state.get(kind) or {}
+        self.log(f"{label}: {count} lượt search (đang {cur.get('progress', '?')}/{cur.get('max', '?')} điểm)")
+        last_progress, last_gain_at = cur.get("progress"), 0
         for i in range(count):
             self.check_stop()
-            if i and i % 5 == 0:  # cứ 5 lượt kiểm tra điểm 1 lần
+            if i and i % self.CHECK_EVERY == 0:  # đọc lại điểm định kỳ
                 c = self._recheck(check_page, kind)
                 if c:
                     self.log(f"  {label}: {c['progress']}/{c['max']} điểm")
                     if c["progress"] >= c["max"]:
                         self.log(f"{label}: đã đủ điểm, dừng sớm")
                         return
-                    if start is not None and i >= 10 and c["progress"] <= start:
-                        self.log(f"  cảnh báo: {label} chưa được cộng điểm sau {i} lượt "
-                                 "(thử tăng thời gian nghỉ trong Cài đặt)")
+                    if last_progress is None or c["progress"] > last_progress:
+                        last_progress, last_gain_at = c["progress"], i
+                    elif i - last_gain_at >= self.STALL_AFTER:
+                        self.log(f"Lỗi: {label} không được cộng điểm sau {i - last_gain_at} lượt liên tiếp "
+                                 f"(đứng ở {c['progress']}/{c['max']}), dừng {label}. Nguyên nhân thường gặp: "
+                                 "bing.com đăng nhập sai tài khoản (bấm Kiểm tra), hoặc Microsoft tạm không tính "
+                                 "search cho tài khoản này.")
+                        self.stalled.add(kind)
+                        return
             q = self.bank.take(self.name)
             self.status(progress=f"{label} {i + 1}/{count}")
             try:
@@ -450,6 +491,9 @@ class RewardsBot:
         except NotLoggedIn:
             self.status(state="Chưa đăng nhập", progress="Bấm Đăng nhập")
             self.log("Chưa đăng nhập Microsoft Rewards cho profile này")
+        except ProfileInUse as e:
+            self.status(state="Lỗi", progress="Profile đang mở ở cửa sổ khác")
+            self.log(f"Lỗi: {e}")
         except Exception as e:
             self.status(state="Lỗi", progress=str(e)[:60])
             self.log(f"Lỗi: {e}")
@@ -481,6 +525,64 @@ class RewardsBot:
         self.status(state="Sẵn sàng", progress="")
         self.log("Đã lưu phiên đăng nhập")
 
+    def diagnose(self) -> list:
+        """Nút Kiểm tra: chạy các bước kiểm tra, KHÔNG search. Trả về [{level, title, detail}]."""
+        results = []
+
+        def add(level, title, detail):
+            results.append({"level": level, "title": title, "detail": detail})
+            self.log(f"[Kiểm tra] {'OK' if level == 'ok' else level.upper()} – {title}: {detail}")
+
+        proxy = security.system_proxy()
+        if proxy:
+            add("ok" if self.s.get("bypass_proxy", True) else "warn", "Proxy hệ thống",
+                f"đang bật ({proxy}); " + ("bot bỏ qua proxy này" if self.s.get("bypass_proxy", True)
+                                         else "bot ĐANG đi qua proxy này (bật lại tùy chọn trong Cài đặt)"))
+        else:
+            add("ok", "Proxy hệ thống", "không có")
+
+        def work(ctx, page, own):
+            add("ok", "Mở trình duyệt", "profile không bị chương trình khác giữ")
+            try:
+                st = self.read_state(page)
+            except NotLoggedIn:
+                add("fail", "Đăng nhập rewards.bing.com", "chưa đăng nhập. Bấm Đăng nhập")
+                return
+            add("ok", "Đăng nhập rewards.bing.com", f"{st['available']:,} điểm, hôm nay +{st.get('today') or 0}")
+            pc, mob = st.get("pc"), st.get("mobile")
+            if pc and mob:
+                add("ok", "Points breakdown", f"PC {pc['progress']}/{pc['max']}, Mobile {mob['progress']}/{mob['max']}")
+            else:
+                add("warn", "Points breakdown", "không đọc được; bot sẽ dùng số lượt search mặc định")
+            n_daily, n_more = len(st["daily"]), len(st["more"])
+            add("ok" if n_daily else "warn", "Daily Set / Keep earning",
+                f"{n_daily} thẻ Daily Set, {n_more} thẻ Keep earning" if n_daily
+                else "không thấy thẻ Daily Set nào (có thể Rewards đổi giao diện)")
+            level, detail = self.bing_account_check(page)
+            add(level, "Tài khoản trên bing.com", detail)
+            m = ctx.new_page()
+            own.append(m)
+            self._emulate_mobile(ctx, m)
+            m.goto("https://www.bing.com/", wait_until="domcontentloaded", timeout=30000)
+            self.sleep(3, 4)
+            signed = any(c["name"] == "_U" for c in ctx.cookies("https://www.bing.com"))
+            prompt = m.locator("a[href*='login.live.com'], #mb_signin").count() > 0
+            add("ok" if signed and not prompt else "fail", "bing.com trên giao diện Mobile",
+                "đã đăng nhập" if signed and not prompt else "chưa đăng nhập: search Mobile sẽ không được tính")
+
+        self.status(state="Đang kiểm tra", progress="")
+        self._session(work, headless=True, label="Kiểm tra")
+        if self.profile.get("mode") == "cdp":
+            add("ok", "Cổng debug", f"chỉ localhost (cổng {self.profile.get('cdp_port')})")
+        if not any(r["title"] == "Mở trình duyệt" for r in results):
+            add("fail", "Mở trình duyệt", "không mở được profile (xem dòng lỗi phía trên trong nhật ký)")
+        worst = "fail" if any(r["level"] == "fail" for r in results) else                 "warn" if any(r["level"] == "warn" for r in results) else "ok"
+        self.status(check=results, check_time=time.strftime("%H:%M %d/%m"),
+                    state={"ok": "Sẵn sàng", "warn": "Sẵn sàng", "fail": "Lỗi"}[worst],
+                    progress={"ok": "Kiểm tra: tất cả OK", "warn": "Kiểm tra: có cảnh báo",
+                              "fail": "Kiểm tra: có lỗi"}[worst])
+        return results
+
     def refresh(self) -> None:
         """Chỉ đọc điểm và trạng thái task, không làm gì."""
         def work(ctx, page, own):
@@ -499,7 +601,10 @@ class RewardsBot:
 
             if self.s.get("do_quests", True):  # Daily Set + Keep earning
                 self.do_cards(page)
-                self.read_state(page)
+                st = self.read_state(page)
+                missed = [c["title"] for c in st["daily"] + st["more"] if not c["done"]]
+                if missed:
+                    self.log("cảnh báo: các thẻ chưa được Rewards ghi nhận sau khi làm: " + "; ".join(missed))
             wants_search = any(self.s.get(k, d) for k, d in (("do_pc", True), ("do_mobile", True), ("do_images", True)))
             account_ok = self.bing_account_ok(page) if wants_search else True
             if account_ok:
@@ -518,9 +623,12 @@ class RewardsBot:
                 self.do_browse(page, int(self.s.get("browse_minutes", 30)))
 
             end = self.read_state(page)["available"] or start
+            self.log(f"Xong! {start} -> {end} (+{end - start})")
             if not account_ok:
                 self.status(state="Lỗi", progress="bing.com đăng nhập sai tài khoản")
-                return
-            self.status(state="Hoàn thành", progress=f"+{end - start}")
-            self.log(f"Xong! {start} -> {end} (+{end - start})")
+            elif self.stalled:
+                names = ", ".join({"pc": "PC", "mobile": "Mobile"}[k] for k in sorted(self.stalled))
+                self.status(state="Lỗi", progress=f"+{end - start} · Search {names} không được cộng điểm")
+            else:
+                self.status(state="Hoàn thành", progress=f"+{end - start}")
         self._session(work, bool(self.s.get("headless")), label="Chạy")

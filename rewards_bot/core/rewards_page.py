@@ -72,6 +72,13 @@ def parse_page(items: list, state: dict) -> dict:
                     state["icons"].setdefault(lines[0].lower(), it["img"])
         elif sec == "streaks" and it.get("img"):
             state["icons"].setdefault("streak:" + lines[0].lower(), it["img"])
+    # thẻ trùng tiêu đề + link (vd 2 thẻ "Do you know the answer?") -> đánh số để bấm đúng thẻ thứ n
+    for key in ("daily", "more"):
+        seen = {}
+        for c in state[key]:
+            k = (c["title"], c["href"])
+            c["dup"] = seen.get(k, 0)
+            seen[k] = c["dup"] + 1
     # profile button "3,417 D" làm dự phòng cho số điểm
     if state.get("available") is None:
         for it in items:

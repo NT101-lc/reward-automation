@@ -30,7 +30,7 @@ SETTING_SCHEMA = {
     "browser_channel": (str, ("msedge", "chrome", "")),
 }
 SETTING_KEYS = tuple(SETTING_SCHEMA)
-ACTIONS = {"run", "refresh", "login"}
+ACTIONS = {"run", "refresh", "login", "check"}
 NAME_MAX = 40
 BAD_NAME_CHARS = set('\\/:*?"<>|')  # ký tự không hợp lệ trong tên thư mục Windows
 
@@ -91,8 +91,8 @@ class Api:
             if data.get("stats") and data["stats"].get("available") is not None:
                 self._history.setdefault(name, {})[time.strftime("%Y-%m-%d")] = data["stats"]
                 _save(POINTS_HISTORY_FILE, self._history)
-            if any(k in data for k in ("tasks", "points", "stats")):
-                keep = ("points", "today", "tasks", "stats", "icons", "updated")
+            if any(k in data for k in ("tasks", "points", "stats", "check")):
+                keep = ("points", "today", "tasks", "stats", "icons", "updated", "check", "check_time")
                 _save(DASHBOARD_FILE, {n: {k: s.get(k) for k in keep if k in s} for n, s in self._pstate.items()})
         self._events.put({"type": "status", "name": name, "data": data,
                           "history": self._history.get(name) if "stats" in data else None})
@@ -200,7 +200,9 @@ def main() -> None:
     api._window = window
 
     def on_closing():
+        # dừng bot và đợi trình duyệt đóng hẳn, tránh để Edge chạy ngầm giữ profile
         api._runner.stop()
+        api._runner.wait(15)
 
     window.events.closing += on_closing
     threading.Thread(target=api._pump, daemon=True).start()
