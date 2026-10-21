@@ -111,3 +111,49 @@ def test_uses_dir_matches_exact_folder_only(tmp_path):
     assert _uses_dir(f"msedge.exe --user-data-dir={d} about:blank", d)
     assert not _uses_dir(f"msedge.exe --user-data-dir={d}_2 about:blank", d)
     assert not _uses_dir("msedge.exe --no-startup-window", d)
+
+
+def test_log_drops_playwright_call_log():
+    bot, logs = make_bot()
+    bot.log('  lỗi browse: Page.goto: net::ERR_CONNECTION_REFUSED at https://x.com/\nCall log:\n  - navigating to "x"')
+    assert logs == ["  lỗi browse: Page.goto: net::ERR_CONNECTION_REFUSED at https://x.com/"]
+
+
+def test_browse_progress_goes_into_edge_minutes_row():
+    bot, _ = make_bot()
+    sent = {}
+    bot._status = lambda n, d: sent.update(d)
+    bot.state = empty_state()
+    bot.state["activity"] = [{"title": "Edge – Minutes", "key": "edge", "progress": 0, "max": 30, "img": ""}]
+    bot.set_local("Browse", 6, 30, "phút")
+    rows = sent["tasks"]
+    assert not any(r["title"] == "Browse" for r in rows)  # không sinh dòng mới
+    edge = next(r for r in rows if r["title"] == "Edge – Minutes")
+    assert edge["unit"] == "phút" and edge["progress"] == 0 and edge["bot"] == "bot: 6/30 phút"
+
+
+def test_local_task_without_matching_activity_gets_own_row():
+    bot, _ = make_bot()
+    sent = {}
+    bot._status = lambda n, d: sent.update(d)
+    bot.state = empty_state()
+    bot.set_local("Browse", 6, 30, "phút")
+    assert any(r["title"] == "Browse" and r["group"] == "Task thêm" for r in sent["tasks"])
+
+
+def test_browse_stops_when_browser_closed():
+    bot, logs = make_bot()
+
+    class ClosedPage:
+        url = "about:blank"
+        calls = 0
+
+        def goto(self, *a, **k):
+            ClosedPage.calls += 1
+            raise RuntimeError("Page.goto: Target page, context or browser has been closed")
+
+    import pytest
+    with pytest.raises(RuntimeError):
+        bot.do_browse(ClosedPage(), 30)
+    assert ClosedPage.calls == 1
+    assert any("trình duyệt đã bị đóng" in m for m in logs)

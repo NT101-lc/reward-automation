@@ -15,6 +15,11 @@ SCRAPE_JS = r"""
   let n;
   while ((n = walker.nextNode())) {
     if (n.tagName === 'H2') section = n.innerText.trim();
+    if (n.getAttribute('role') === 'progressbar' && n.getAttribute('aria-label')) {  // vd "Stamps collected"
+      out.push({section, tag: 'PROGRESS', href: '', index: -1, lines: [n.getAttribute('aria-label')], img: '',
+                now: Number(n.getAttribute('aria-valuenow')), max: Number(n.getAttribute('aria-valuemax'))});
+      continue;
+    }
     if (n.tagName !== 'A' && n.tagName !== 'BUTTON') continue;
     const lines = (n.innerText || '').split('\n').map(s => s.trim()).filter(Boolean);
     if (!lines.length) continue;
@@ -51,6 +56,26 @@ def parse_page(items: list, state: dict) -> dict:
         text = " ".join(lines)
         href = it["href"]
 
+        if it["tag"] == "PROGRESS":
+            if lines[0] == "Stamps collected":
+                state["stamps"] = {"progress": int(it.get("now") or 0), "max": int(it.get("max") or 12),
+                                   "bonus": (state.get("stamps") or {}).get("bonus")}
+            continue
+        if lines[0] == "Stamp bonus" and len(lines) > 1:  # "1,000 pts"
+            state["stamps"] = {**(state.get("stamps") or {"progress": None, "max": 12}), "bonus": _num(lines[1])}
+            continue
+        if lines[0] == "Daily streak" and len(lines) > 1 and _num(lines[1]):
+            state["daily_streak"] = _num(lines[1])
+            continue
+        if sec == "streaks" and it["tag"] == "BUTTON":
+            m = re.search(r"Day (\d+) of (\d+)", text)
+            if m:
+                today = next((l.split(":", 1)[1].strip() for l in lines if re.match(r"^[^:]+:\s*\d+/\d+$", l)), "")
+                done, _, total = today.partition("/")
+                nxt = re.search(r"earn (\d+) points", text)
+                state["streaks"].append({"title": lines[0], "day": int(m.group(1)), "of": int(m.group(2)),
+                                         "today": today, "today_done": bool(total) and done == total,
+                                         "next": int(nxt.group(1)) if nxt else None, "img": it.get("img", "")})
         if lines[0] == "Available points" and len(lines) > 1:
             state["available"] = _num(lines[1])
         elif lines[0] == "Today's points" and len(lines) > 1:
@@ -117,12 +142,20 @@ def stats(state: dict) -> dict:
     return {"available": state.get("available"), "today": state.get("today"),
             "pc": pc.get("progress"), "pc_max": pc.get("max"),
             "mobile": mob.get("progress"), "mobile_max": mob.get("max"),
-            "offers": state.get("offers"), "month": state.get("month"), "lifetime": state.get("lifetime")}
+            "offers": state.get("offers"), "month": state.get("month"), "lifetime": state.get("lifetime"),
+            "stamps": (state.get("stamps") or {}).get("progress"), "daily_streak": state.get("daily_streak")}
 
 
 def empty_state() -> dict:
     return {"available": None, "today": None, "daily": [], "more": [], "activity": [],
-            "pc": None, "mobile": None, "offers": None, "icons": {}}
+            "pc": None, "mobile": None, "offers": None, "icons": {},
+            "stamps": None, "daily_streak": None, "streaks": []}
+
+
+def streak_info(state: dict) -> dict:
+    """Stamp bonus (12 dấu = +1.000 điểm), số ngày streak và các chuỗi streak để hiện trên giao diện."""
+    return {"stamps": state.get("stamps"), "daily_streak": state.get("daily_streak"),
+            "streaks": state.get("streaks") or []}
 
 
 def icon(state: dict, *keys: str) -> str:
@@ -155,8 +188,9 @@ def build_task_rows(state: dict) -> list:
         rows.append({"group": "Keep earning", "title": c["title"], "progress": c["points"] if c["done"] else 0,
                      "max": c["points"], "done": c["done"], "img": c.get("img", "")})
     for a in state.get("activity", []):
+        unit = "phút" if "minute" in a["title"].lower() else "lượt"
         rows.append({"group": "Hoạt động", "title": a["title"], "progress": a["progress"], "max": a["max"],
-                     "unit": "lượt", "done": a["progress"] >= a["max"], "img": a.get("img", "")})
+                     "unit": unit, "done": a["progress"] >= a["max"], "img": a.get("img", "")})
     return rows
 
 

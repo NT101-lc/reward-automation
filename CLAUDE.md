@@ -23,6 +23,10 @@ python -m rewards_bot --run-all --headless # what Task Scheduler runs
 - `core/config.py`: settings defaults plus atomic JSON writes (`.bak` kept). `ui/webapp.py` has `SETTING_SCHEMA`:
   every new setting needs a default in `DEFAULT_SETTINGS`, an entry in the schema and a field in
   `ui/web/app.js` (`SETTING_FIELDS`).
+- `ui/web`: the UI uses Tabler 1.0 (Bootstrap 5), Tabler Icons and ApexCharts, all vendored in `ui/web/vendor/`.
+  The CSP allows only `'self'`, so never load anything from a CDN. Theme = `data-bs-theme` on `<html>`, driven by
+  the `theme` setting ("system"/"light"/"dark"). Style with `--tblr-*` variables so both themes work.
+  `tests/test_ui_smoke.py` renders every page in headless Edge with a mocked API.
 - `search/catalog.py`: the query catalog. `search/bank.py` hands out queries without repeats across accounts or
   across `history_days`.
 - `data/` holds login sessions and cookies. It is never committed. Profile dir = `data/profiles/<profile["dir"]>`,
@@ -41,6 +45,12 @@ python -m rewards_bot --run-all --headless # what Task Scheduler runs
 - Edge adds desktop-only headers (`sec-ms-gec`, `x-client-data`, `x-edge-*`) at the network layer. Playwright
   `route` cannot remove them. Chrome cannot read Edge's cookies (app-bound encryption), so a copied profile is
   logged out.
+- "Visual Search – Activity" is not earned by Bing Images searches or by clicking a result's Visual Search button. It
+  needs the camera flow (`bing.com/?features=vsstreak`, then "Search using an image"). Uploading or pasting an image
+  there from the bot fails with "Unable to process this search". The user does this step by hand, and image search
+  is off by default.
+- Stamp bonus: on /dashboard the element `[role=progressbar][aria-label="Stamps collected"]` carries
+  `aria-valuenow` / `aria-valuemax`. Streaks are in the /earn "Streaks" section ("Day x of 7").
 - Windows can auto-sign the Edge *browser* into the user's work account in every bot profile, even
   when bing.com cookies belong to another account. This did not affect search points.
 

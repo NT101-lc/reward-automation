@@ -16,6 +16,7 @@ Mặc định app dùng Microsoft Edge có sẵn trên Windows. Nếu muốn dù
 ## Sử dụng
 
 Giao diện chạy trong cửa sổ riêng bằng Edge WebView2 (có sẵn trên Windows 10/11). Chỉ mở được 1 cửa sổ app cùng lúc.
+Có chế độ **sáng / tối / theo Windows** (nút ở góc dưới thanh bên, hoặc trang Cài đặt) và trang **Hướng dẫn** ngay trong app.
 
 Nhấp đúp `run.bat`, hoặc:
 ```bash
@@ -55,7 +56,9 @@ python -m rewards_bot
   dữ liệu lần cuối ở `data/dashboard.json`.
 
 ### Task thêm
-- **Search ảnh**: tìm trên Bing Images (mặc định 6 lượt), rồi mở xem một ảnh.
+- **Search ảnh**: tìm trên Bing Images (mặc định 6 lượt) với câu có hình để xem, rồi mở xem một ảnh. Mặc định **tắt**:
+  việc này **không** được tính cho "Visual Search – Activity" / Visual Search Streak. Mục đó cần tìm bằng camera
+  ("Search using an image" trên bing.com hoặc app Bing); bot thử upload ảnh thì Bing báo lỗi, nên hãy làm tay.
 - **Browse**: lướt các trang tin tức/kiến thức trong N phút (mặc định 30), cuộn trang và đi theo link nội bộ. Mặc định **tắt**.
   Task "browse với Edge" thường được tính qua tài khoản đăng nhập trong chính Edge, nên chạy ở chế độ *Gắn vào Edge đang mở* (Edge đã đăng nhập) thì dễ được tính hơn.
 - Số lượt và số phút chỉnh trong trang Cài đặt.
@@ -123,7 +126,8 @@ rewards-bot/
 │   │   ├── instance.py     # chỉ 1 cửa sổ app chạy cùng lúc
 │   │   └── config.py       # cài đặt, tài khoản, đọc/ghi file an toàn
 │   ├── search/             # catalog.py (danh mục câu search) + bank.py (chia câu không trùng)
-│   └── ui/                 # webapp.py (pywebview) + web/ (index.html, style.css, app.js)
+│   └── ui/                 # webapp.py (pywebview) + web/ (index.html, style.css, app.js, theme.js)
+│                           #   web/vendor/: Tabler, Tabler Icons, ApexCharts (MIT, lưu sẵn, không tải từ mạng)
 ├── tests/                  # pytest: logic, dữ liệu, giao diện
 ├── data/                   # tự tạo khi chạy (không commit)
 ├── run.bat                 # mở app

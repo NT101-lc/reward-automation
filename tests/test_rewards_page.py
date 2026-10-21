@@ -84,3 +84,28 @@ def test_points_fallback_from_profile_button():
     st = rp.empty_state()
     rp.parse_page([{"section": "", "tag": "BUTTON", "href": "", "index": -1, "lines": ["12,345", "A"], "img": ""}], st)
     assert st["available"] == 12345
+
+
+def test_stamp_bonus_and_streaks():
+    items = [
+        {"section": "Your progress", "tag": "BUTTON", "href": "", "lines": ["Daily streak", "11 days"]},
+        {"section": "Your progress", "tag": "BUTTON", "href": "", "lines": ["Stamp bonus", "1,000 pts"]},
+        {"section": "Your progress", "tag": "PROGRESS", "href": "", "lines": ["Stamps collected"], "now": 3, "max": 12},
+        {"section": "Streaks", "tag": "BUTTON", "href": "",
+         "lines": ["1,000 BONUS", "Earn 12 stamps for big bonus points", "Learn more"]},
+        {"section": "Streaks", "tag": "BUTTON", "href": "", "img": "x.png",
+         "lines": ["Bing Search Streak", "Day 4 of 7 streak completed.", "Complete the next day to earn 3 points.",
+                   "3", "100", "Search: 1/1"]},
+        {"section": "Streaks", "tag": "BUTTON", "href": "",
+         "lines": ["Bing App Streak", "Day 0 of 7 streak completed.", "Complete the next day to earn 5 points.",
+                   "+5", "50", "Check-in: 0/1"]},
+    ]
+    st = rp.empty_state()
+    rp.parse_page(items, st)
+    assert st["stamps"] == {"progress": 3, "max": 12, "bonus": 1000}
+    assert st["daily_streak"] == 11
+    assert [(r["title"], r["day"], r["of"], r["today_done"]) for r in st["streaks"]] == [
+        ("Bing Search Streak", 4, 7, True), ("Bing App Streak", 0, 7, False)]
+    assert st["streaks"][1]["today"] == "0/1"
+    assert [r["next"] for r in st["streaks"]] == [3, 5]
+    assert rp.stats(st)["stamps"] == 3

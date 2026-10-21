@@ -44,13 +44,23 @@ def boot_data():
         "settings": {"search_delay_min": 8, "search_delay_max": 20, "extra_searches": 2, "browser_channel": "msedge",
                      "headless": True, "max_parallel": 3, "history_days": 30, "do_quests": True, "do_pc": True,
                      "do_mobile": True, "do_images": False, "image_searches": 6, "do_browse": False,
-                     "browse_minutes": 30, "bypass_proxy": True},
+                     "browse_minutes": 30, "bypass_proxy": True, "theme": "light"},
         "profiles": [{"name": "acc <img src=x onerror=alert(1)>", "mode": "managed", "cdp_port": 9222, "dir": "a"}],
         "pstate": {"acc <img src=x onerror=alert(1)>": {
             "state": "Sẵn sàng", "points": 3417, "today": 98, "tasks": rp.build_task_rows(st), "stats": rp.stats(st),
-            "icons": rp.group_icons(st), "check": check, "check_time": "10:00 20/10"}},
-        "history": {}, "running": [],
+            "icons": rp.group_icons(st), "check": check, "check_time": "10:00 20/10",
+            "streak": {"stamps": {"progress": 3, "max": 12, "bonus": 1000}, "daily_streak": 11, "streaks": [
+                {"title": "Bing Search Streak", "day": 4, "of": 7, "today": "1/1", "today_done": True, "img": ""},
+                {"title": "<img src=x onerror=alert(2)>", "day": 0, "of": 7, "today": "0/1", "today_done": False,
+                 "img": ""}]}}},
+        "history": {"acc <img src=x onerror=alert(1)>": {
+            "2026-10-20": {"available": 3517, "pc": 90, "mobile": 60, "offers": 47},
+            "2026-10-21": {"available": 3696, "pc": 90, "mobile": 60, "offers": 29}}},
+        "running": [],
     }
+
+
+SHOT = None  # đặt đường dẫn để chụp ảnh khi xem giao diện bằng tay
 
 
 def test_pages_render_without_errors(server):
@@ -76,9 +86,40 @@ def test_pages_render_without_errors(server):
         assert pg.locator("#check-panel").is_visible()
         assert pg.locator("#check-list li.fail").count() == 1
         assert pg.locator("#stamps .stamp").count() >= 5
-        for page in ("profiles", "log", "settings", "dashboard"):
+        assert pg.locator("#streak-panel").is_visible()
+        assert pg.locator("#stamp-grid .sdot").count() == 12
+        assert pg.locator("#stamp-grid .sdot.on").count() == 3
+        assert pg.locator("#streak-list .streak-row").count() == 2
+        assert pg.locator("#streak-list .streak-row").first.locator(".sday").count() == 7
+        assert pg.locator("#streak-list .streak-row").first.locator(".sday.on").count() == 4
+        pg.wait_for_function("document.querySelectorAll('#chart-daily .apexcharts-canvas, #chart-balance .apexcharts-canvas').length === 2",
+                             timeout=10000)
+        assert pg.evaluate("document.documentElement.dataset.bsTheme") == "light"
+        pg.click(".theme-switch button[data-theme=dark]")
+        assert pg.evaluate("document.documentElement.dataset.bsTheme") == "dark"
+        if SHOT:
+            pg.set_viewport_size({"width": 1320, "height": 1100})
+            pg.screenshot(path=SHOT, full_page=True)
+        for page in ("profiles", "log", "settings", "guide", "dashboard"):
             pg.evaluate(f"go('{page}')")
             pg.wait_for_timeout(200)
+        # hộp thoại thêm tài khoản: nền đặc, ô cổng chỉ hiện ở chế độ gắn vào Edge, nút nằm trong khung
+        pg.evaluate("go('profiles')"); pg.click("#btn-add")
+        assert pg.locator("#profile-dialog").is_visible()
+        assert pg.evaluate("getComputedStyle(document.querySelector('#profile-dialog')).backgroundColor") not in ("rgba(0, 0, 0, 0)", "transparent")
+        assert not pg.locator("#pd-port").is_visible()
+        pg.click("input[name=mode][value=cdp] + .form-selectgroup-label")
+        assert pg.locator("#pd-port").is_visible()
+        box, save = pg.locator("#profile-dialog").bounding_box(), pg.locator("#pd-save").bounding_box()
+        assert save["x"] + save["width"] <= box["x"] + box["width"] and save["y"] + save["height"] <= box["y"] + box["height"]
+        if SHOT:
+            pg.screenshot(path=SHOT.replace(".png", "_dialog.png"))
+        pg.click("#profile-dialog .btn-close")
+        assert not pg.locator("#profile-dialog").is_visible()
+        pg.evaluate("go('guide')")
+        assert pg.locator("#page-guide .accordion-item").count() >= 5
+        pg.click("#page-guide [data-bs-target='#g-fix']")
+        pg.wait_for_selector("#g-fix.show", timeout=3000)  # accordion của Tabler/Bootstrap hoạt động
         b.close()
     assert errors == []
     assert dialogs == []  # tên/tiêu đề chứa HTML không được chạy

@@ -28,6 +28,7 @@ SETTING_SCHEMA = {
     "headless": (bool,), "do_quests": (bool,), "do_pc": (bool,), "do_mobile": (bool,), "do_images": (bool,),
     "do_browse": (bool,), "bypass_proxy": (bool,),
     "browser_channel": (str, ("msedge", "chrome", "")),
+    "theme": (str, ("system", "light", "dark")),
 }
 SETTING_KEYS = tuple(SETTING_SCHEMA)
 ACTIONS = {"run", "refresh", "login", "check"}
@@ -92,7 +93,7 @@ class Api:
                 self._history.setdefault(name, {})[time.strftime("%Y-%m-%d")] = data["stats"]
                 _save(POINTS_HISTORY_FILE, self._history)
             if any(k in data for k in ("tasks", "points", "stats", "check")):
-                keep = ("points", "today", "tasks", "stats", "icons", "updated", "check", "check_time")
+                keep = ("points", "today", "tasks", "stats", "icons", "streak", "updated", "check", "check_time")
                 _save(DASHBOARD_FILE, {n: {k: s.get(k) for k in keep if k in s} for n, s in self._pstate.items()})
         self._events.put({"type": "status", "name": name, "data": data,
                           "history": self._history.get(name) if "stats" in data else None})
@@ -192,11 +193,30 @@ class Api:
         return {"ok": True, "settings": {k: self._settings.get(k) for k in SETTING_KEYS}}
 
 
+def _windows_dark() -> bool:
+    """Windows đang dùng giao diện tối cho ứng dụng?"""
+    try:
+        import winreg
+        with winreg.OpenKey(winreg.HKEY_CURRENT_USER,
+                            r"Software\Microsoft\Windows\CurrentVersion\Themes\Personalize") as k:
+            return winreg.QueryValueEx(k, "AppsUseLightTheme")[0] == 0
+    except OSError:
+        return False
+
+
+def _window_background(theme: str) -> str:
+    """Màu nền cửa sổ khi trang chưa vẽ xong, khớp sáng/tối để không bị nháy."""
+    dark = theme == "dark" or (theme == "system" and _windows_dark())
+    return "#151f2c" if dark else "#f6f8fb"
+
+
 def main() -> None:
     security.harden_data_dir(DATA_DIR)
     api = Api()
     window = webview.create_window("Microsoft Rewards Bot", url=str(WEB_DIR / "index.html"), js_api=api,
-                                   width=1320, height=880, min_size=(1020, 680), background_color="#F5F6FA")
+                                   width=1320, height=880, min_size=(1020, 680),
+                                   background_color=_window_background(api._settings.get("theme", "system")),
+                                   text_select=True)  # cho bôi đen / copy nhật ký
     api._window = window
 
     def on_closing():

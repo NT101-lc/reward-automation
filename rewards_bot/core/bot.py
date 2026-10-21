@@ -13,8 +13,9 @@ from . import security
 from .browser import ProfileInUse, free_profile
 from .config import profile_dir
 from .rewards_page import (SCRAPE_JS, activity, build_task_rows, empty_state, group_icons, icon, parse_breakdown,
-                           parse_page, stats)
+                           parse_page, stats, streak_info)
 from ..search.bank import QueryBank
+from ..search.catalog import IMAGE_QUERIES
 
 REWARDS = "https://rewards.bing.com"
 DASHBOARD_URL = REWARDS + "/dashboard"
@@ -29,7 +30,7 @@ BROWSE_SITES = [
     "https://www.msn.com/",
     "https://www.bing.com/news",
     "https://en.wikipedia.org/wiki/Special:Random",
-    "https://www.bbc.com/news",
+    "https://apnews.com/",
     "https://www.nationalgeographic.com/",
     "https://www.theverge.com/",
     "https://www.reuters.com/",
@@ -62,7 +63,8 @@ class RewardsBot:
 
     # ------------------------------------------------------------ helpers
     def log(self, msg: str) -> None:
-        self._log(self.name, msg)
+        # lỗi Playwright kèm "Call log:" nhiều dòng -> chỉ giữ dòng lỗi chính cho nhật ký gọn
+        self._log(self.name, msg.split("\nCall log:")[0].rstrip())
 
     def status(self, **kw) -> None:
         self._status(self.name, kw)
@@ -75,15 +77,26 @@ class RewardsBot:
         if self.stop.is_set():
             raise StopRequested()
 
+    # task của app -> dòng "Your activity" trên Rewards mà nó nhắm tới (key = tên dòng viết thường)
+    LOCAL_TO_ACTIVITY = {"Browse": "edge", "Search ảnh": "visual search"}
+
     def report(self) -> None:
         """Gửi danh sách task (từ Rewards + task thêm của app) lên giao diện."""
         rows = build_task_rows(self.state)
-        local_icons = {"Search ảnh": icon(self.state, "visual search"), "Browse": icon(self.state, "bing")}
+        local_icons = {"Search ảnh": icon(self.state, "visual search"), "Browse": icon(self.state, "edge", "bing")}
         for title, t in self.local.items():
+            bot_note = f"bot: {t['progress']}/{t['max']} {t['unit']}"
+            target = activity(self.state, self.LOCAL_TO_ACTIVITY.get(title, ""))
+            row = next((r for r in rows if target and r["group"] == "Hoạt động" and r["title"] == target["title"]),
+                       None)
+            if row:  # cập nhật vào dòng Rewards tương ứng thay vì thêm dòng mới; tiến độ chính vẫn là số của Rewards
+                row["bot"] = bot_note
+                continue
             rows.append({"group": "Task thêm", "title": title, "progress": t["progress"], "max": t["max"],
                          "unit": t["unit"], "done": t["progress"] >= t["max"], "img": local_icons.get(title, "")})
         self.status(tasks=rows, today=self.state.get("today"), stats=stats(self.state),
-                    icons=group_icons(self.state), updated=time.strftime("%H:%M %d/%m"))
+                    icons=group_icons(self.state), streak=streak_info(self.state),
+                    updated=time.strftime("%H:%M %d/%m"))
 
     def set_local(self, title: str, progress, total, unit: str) -> None:
         self.local[title] = {"progress": progress, "max": total, "unit": unit}
@@ -471,7 +484,7 @@ class RewardsBot:
         self.set_local(title, 0, count, "lượt")
         for i in range(count):
             self.check_stop()
-            q = self.bank.take(self.name)
+            q = random.choice(IMAGE_QUERIES)  # câu có hình để xem, không lấy bộ câu kiến thức của search chữ
             self.status(progress=f"Ảnh {i + 1}/{count}")
             try:
                 page.goto(f"https://www.bing.com/images/search?q={quote_plus(q)}&form=HDRSC2&first=1",
@@ -497,7 +510,13 @@ class RewardsBot:
         start = time.time()
         self.log(f"{title}: lướt web trong {minutes} phút")
         self.set_local(title, 0, minutes, "phút")
-        url = random.choice(BROWSE_SITES)
+        blocked: set = set()  # trang không kết nối được (vd mạng chặn bằng DNS) -> bỏ qua trong lượt này
+
+        def pick_site() -> str:
+            ok = [u for u in BROWSE_SITES if urlparse(u).netloc not in blocked]
+            return random.choice(ok or BROWSE_SITES)
+
+        url = pick_site()
         while (elapsed := time.time() - start) < total:
             self.check_stop()
             self.status(progress=f"Browse {int(elapsed // 60)}/{minutes} phút")
@@ -513,12 +532,20 @@ class RewardsBot:
                     ".filter(h => h.startsWith('http')).slice(0, 200)")
                 host = urlparse(page.url).netloc
                 same = [h for h in links if urlparse(h).netloc == host and h.split('#')[0] != page.url]
-                url = random.choice(same) if same and random.random() < 0.7 else random.choice(BROWSE_SITES)
+                url = random.choice(same) if same and random.random() < 0.7 else pick_site()
             except StopRequested:
                 raise
             except Exception as e:
-                self.log(f"  lỗi browse: {e}")
-                url = random.choice(BROWSE_SITES)
+                if "has been closed" in str(e):  # trình duyệt / tab bị đóng giữa chừng: dừng hẳn, không lặp lỗi
+                    self.log(f"Lỗi: trình duyệt đã bị đóng, dừng {title}")
+                    raise
+                host = urlparse(url).netloc
+                if "net::ERR_" in str(e) and host not in blocked:
+                    blocked.add(host)
+                    self.log(f"  không vào được {host} (mạng chặn hoặc trang lỗi), bỏ qua trang này")
+                else:
+                    self.log(f"  lỗi browse: {e}")
+                url = pick_site()
                 self.sleep(2, 4)
             self.set_local(title, min(minutes, int((time.time() - start) // 60)), minutes, "phút")
         self.set_local(title, minutes, minutes, "phút")

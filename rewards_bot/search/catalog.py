@@ -542,3 +542,24 @@ def all_queries() -> list:
                     seen.add(q.lower())
                     out.append((cat, q))
     return out
+
+
+# Câu cho search ảnh (Bing Images): thứ có hình để xem, không dùng bộ câu kiến thức ở trên
+IMAGE_QUERIES = [
+    "aurora borealis iceland", "ha long bay aerial view", "hoi an lantern festival night", "rice terraces mu cang chai",
+    "son doong cave photos", "fansipan sunrise", "kyoto cherry blossom", "swiss alps winter village",
+    "santorini sunset", "milky way night sky", "great barrier reef coral", "sahara desert dunes",
+    "cute red panda", "snow leopard in the wild", "hummingbird close up", "sea turtle underwater",
+    "golden retriever puppy", "shiba inu", "british shorthair cat", "octopus camouflage",
+    "studio ghibli scenery wallpaper", "cyberpunk city wallpaper 4k", "minimalist desk setup",
+    "mechanical keyboard custom", "gaming pc rgb build", "home office setup ideas", "scandinavian living room",
+    "japanese garden design", "small balcony garden", "bonsai tree", "modern tiny house",
+    "pho bo vietnamese", "banh mi sandwich", "sushi platter", "ramen bowl", "matcha latte art",
+    "latte art heart", "sourdough bread crumb", "tiramisu dessert", "fruit tart",
+    "minecraft castle build", "minecraft medieval village", "roblox avatar ideas", "fortnite skins",
+    "league of legends splash art", "valorant agents wallpaper", "genshin impact landscape", "elden ring concept art",
+    "pokemon cards collection", "zelda tears of the kingdom scenery", "james webb telescope images",
+    "saturn rings close up", "nebula hubble photo", "volcano eruption lava", "lightning storm photography",
+    "vintage film camera", "porsche 911 classic", "vinfast vf8", "cafe racer motorcycle", "electric scooter design",
+    "watercolor landscape painting", "ink drawing city sketch", "pixel art landscape", "origami crane",
+]

@@ -3,178 +3,381 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<!-- Chỉ chạy script của chính app; ảnh chỉ từ bing.com; không tải/gửi dữ liệu đi đâu khác.
+<!-- Chỉ chạy script của chính app; ảnh chỉ từ bing.com; font/thư viện nằm sẵn trong vendor/; không tải/gửi dữ liệu đi đâu khác.
      Dữ liệu (tiêu đề task...) lấy từ trang web bên ngoài nên dù lọt mã HTML cũng không chạy được. -->
-<meta http-equiv="Content-Security-Policy" content="default-src 'none'; script-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' data: https://bing.com https://*.bing.com; connect-src 'none'; frame-src 'none'; object-src 'none'; base-uri 'none'">
+<meta http-equiv="Content-Security-Policy" content="default-src 'none'; script-src 'self'; style-src 'self' 'unsafe-inline'; font-src 'self'; img-src 'self' data: https://bing.com https://*.bing.com; connect-src 'none'; frame-src 'none'; object-src 'none'; base-uri 'none'">
 <title>Microsoft Rewards Bot</title>
+<script src="theme.js"></script>
+<link rel="stylesheet" href="vendor/tabler/tabler.min.css">
+<link rel="stylesheet" href="vendor/icons/tabler-icons.min.css">
 <link rel="stylesheet" href="style.css">
 </head>
 <body>
-<div class="app">
-  <aside class="side">
-    <div class="brand">
-      <svg class="medal" viewBox="0 0 32 32" aria-hidden="true">
-        <path d="M10 2h5l-3 9H7zM17 2h5l3 9h-5z" fill="#4f7fd6"/>
-        <circle cx="16" cy="19" r="10" fill="#e9a400"/>
-        <circle cx="16" cy="19" r="6.5" fill="none" stroke="#fff3cc" stroke-width="1.6"/>
-      </svg>
-      <div>
-        <strong>Rewards Bot</strong>
-        <span id="brand-sub">0 profile</span>
+<div class="page">
+  <!-- ======================== Thanh bên ======================== -->
+  <aside class="navbar navbar-vertical navbar-expand-lg side" data-bs-theme="dark">
+    <div class="container-fluid">
+      <div class="brand">
+        <span class="brand-mark"><i class="ti ti-medal"></i></span>
+        <div><strong>Rewards Bot</strong><span id="brand-sub">0 tài khoản</span></div>
       </div>
-    </div>
-    <nav>
-      <button data-page="dashboard" class="active">
-        <svg viewBox="0 0 24 24"><path d="M4 13h7V4H4zm9 7h7v-9h-7zM4 20h7v-5H4zm9-11h7V4h-7z"/></svg>Tổng quan</button>
-      <button data-page="profiles">
-        <svg viewBox="0 0 24 24"><circle cx="9" cy="8" r="3.5"/><path d="M2.5 20c.6-3.6 3.3-5.5 6.5-5.5s5.9 1.9 6.5 5.5"/><circle cx="17.5" cy="9" r="2.6"/><path d="M16 14.6c2.8-.3 5 1.3 5.6 4.4"/></svg>Tài khoản</button>
-      <button data-page="log">
-        <svg viewBox="0 0 24 24"><path d="M5 5h14M5 10h14M5 15h9M5 20h6"/></svg>Nhật ký<span class="badge" id="log-badge" hidden></span></button>
-      <button data-page="settings">
-        <svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="3"/><path d="M12 2.5v3M12 18.5v3M2.5 12h3M18.5 12h3M5.3 5.3l2.1 2.1M16.6 16.6l2.1 2.1M5.3 18.7l2.1-2.1M16.6 7.4l2.1-2.1"/></svg>Cài đặt</button>
-    </nav>
-    <div class="side-foot">
-      <div class="run-state" id="run-state"><span class="dot"></span><span>Đang nghỉ</span></div>
+      <ul class="navbar-nav pt-lg-3" id="nav">
+        <li class="nav-item"><a class="nav-link active" href="#" data-page="dashboard">
+          <span class="nav-link-icon"><i class="ti ti-layout-dashboard"></i></span><span class="nav-link-title">Tổng quan</span></a></li>
+        <li class="nav-item"><a class="nav-link" href="#" data-page="profiles">
+          <span class="nav-link-icon"><i class="ti ti-users"></i></span><span class="nav-link-title">Tài khoản</span></a></li>
+        <li class="nav-item"><a class="nav-link" href="#" data-page="log">
+          <span class="nav-link-icon"><i class="ti ti-list-details"></i></span><span class="nav-link-title">Nhật ký</span>
+          <span class="badge bg-red text-red-fg ms-auto" id="log-badge" hidden></span></a></li>
+        <li class="nav-item"><a class="nav-link" href="#" data-page="settings">
+          <span class="nav-link-icon"><i class="ti ti-settings"></i></span><span class="nav-link-title">Cài đặt</span></a></li>
+        <li class="nav-item"><a class="nav-link" href="#" data-page="guide">
+          <span class="nav-link-icon"><i class="ti ti-help-circle"></i></span><span class="nav-link-title">Hướng dẫn</span></a></li>
+      </ul>
+      <div class="side-foot">
+        <div class="theme-switch" role="radiogroup" aria-label="Giao diện">
+          <button type="button" data-theme="light" title="Sáng"><i class="ti ti-sun"></i></button>
+          <button type="button" data-theme="system" title="Theo Windows"><i class="ti ti-device-desktop"></i></button>
+          <button type="button" data-theme="dark" title="Tối"><i class="ti ti-moon"></i></button>
+        </div>
+        <div class="run-state" id="run-state"><span class="status-dot"></span><span>Đang nghỉ</span></div>
+      </div>
     </div>
   </aside>
 
-  <main>
+  <div class="page-wrapper">
     <!-- ======================== Tổng quan ======================== -->
-    <section class="page" id="page-dashboard">
-      <header class="top">
-        <div class="chips" id="profile-chips"></div>
-        <div class="actions">
-          <button class="btn ghost" id="btn-check" title="Tự chẩn đoán đăng nhập, tài khoản bing.com, điểm search. Không search.">Kiểm tra</button>
-          <button class="btn ghost" id="btn-refresh" title="Chỉ đọc điểm, không làm task">Làm mới</button>
-          <button class="btn primary" id="btn-run-one">Chạy tài khoản này</button>
-        </div>
-      </header>
-
-      <div class="hero">
-        <div class="balance">
-          <div class="who"><span class="avatar big" id="hero-avatar"></span>
-            <div><h1 id="hero-name">—</h1><p id="hero-state" class="muted">—</p></div>
+    <section class="view" id="page-dashboard">
+      <div class="page-header">
+        <div class="container-xl d-flex flex-wrap gap-3 align-items-center">
+          <div class="chips" id="profile-chips"></div>
+          <div class="ms-auto btn-list">
+            <button class="btn" id="btn-check" title="Tự chẩn đoán đăng nhập, tài khoản bing.com, điểm search. Không search.">
+              <i class="ti ti-stethoscope"></i>Kiểm tra</button>
+            <button class="btn" id="btn-refresh" title="Chỉ đọc điểm, không làm task"><i class="ti ti-refresh"></i>Làm mới</button>
+            <button class="btn btn-primary" id="btn-run-one"><i class="ti ti-player-play"></i>Chạy tài khoản này</button>
           </div>
-          <div class="figure">
-            <span class="num" id="hero-points">—</span><span class="unit">điểm</span>
+        </div>
+      </div>
+      <div class="page-body"><div class="container-xl">
+        <div class="row row-deck row-cards">
+          <div class="col-lg-4">
+            <div class="card hero">
+              <div class="card-body">
+                <div class="d-flex align-items-center gap-3">
+                  <span class="avatar avatar-md hero-avatar" id="hero-avatar"></span>
+                  <div class="min-w-0"><h2 class="m-0 text-truncate" id="hero-name">—</h2>
+                    <div class="hero-state" id="hero-state">—</div></div>
+                </div>
+                <div class="hero-figure"><span class="num" id="hero-points">—</span><span class="unit">điểm</span></div>
+                <div class="hero-mini">
+                  <div><div class="lbl">Hôm nay</div><div class="val" id="hero-today">—</div></div>
+                  <div><div class="lbl">Tháng này</div><div class="val" id="hero-month">—</div></div>
+                  <div><div class="lbl">Trọn đời</div><div class="val" id="hero-life">—</div></div>
+                </div>
+              </div>
+            </div>
           </div>
-          <dl class="mini">
-            <div><dt>Hôm nay</dt><dd id="hero-today">—</dd></div>
-            <div><dt>Tháng này</dt><dd id="hero-month">—</dd></div>
-            <div><dt>Trọn đời</dt><dd id="hero-life">—</dd></div>
-          </dl>
-        </div>
-        <div class="stampcard">
-          <div class="stamp-head">
-            <h2>Thẻ đóng dấu hôm nay</h2>
-            <span id="stamp-count" class="muted"></span>
+          <div class="col-lg-8">
+            <div class="card">
+              <div class="card-header"><h3 class="card-title"><i class="ti ti-rosette-discount-check me-2 text-yellow"></i>Thẻ đóng dấu hôm nay</h3>
+                <div class="card-actions text-secondary" id="stamp-count"></div></div>
+              <div class="card-body d-flex flex-column gap-3">
+                <div class="stamps" id="stamps"></div>
+                <div class="meters mt-auto" id="meters"></div>
+              </div>
+            </div>
           </div>
-          <div class="stamps" id="stamps"></div>
-          <div class="meters" id="meters"></div>
-        </div>
-      </div>
 
-      <div class="panel check-panel" id="check-panel" hidden>
-        <div class="panel-head"><h2>Kết quả kiểm tra</h2><span class="muted" id="check-time"></span></div>
-        <ul class="checks" id="check-list"></ul>
-      </div>
+          <div class="col-12" id="streak-panel" hidden>
+            <div class="card">
+              <div class="card-header"><h3 class="card-title"><i class="ti ti-flame me-2 text-orange"></i>Streak &amp; Stamp bonus</h3>
+                <div class="card-actions text-secondary" id="streak-sub"></div></div>
+              <div class="card-body streak-body">
+                <div class="stamp-box">
+                  <div class="daily-streak" id="daily-streak"></div>
+                  <div class="stampgrid" id="stamp-grid" role="img"></div>
+                  <p class="text-secondary streak-hint" id="streak-hint"></p>
+                </div>
+                <div class="streak-list" id="streak-list"></div>
+              </div>
+            </div>
+          </div>
 
-      <div class="grid2">
-        <div class="panel">
-          <div class="panel-head"><h2>Điểm mỗi ngày</h2><div class="legend" id="legend-daily"></div></div>
-          <div class="chart" id="chart-daily"></div>
-        </div>
-        <div class="panel">
-          <div class="panel-head"><h2>Số điểm hiện có</h2><span class="muted">30 ngày</span></div>
-          <div class="chart" id="chart-balance"></div>
-        </div>
-      </div>
+          <div class="col-12" id="check-panel" hidden>
+            <div class="card">
+              <div class="card-header"><h3 class="card-title"><i class="ti ti-stethoscope me-2"></i>Kết quả kiểm tra</h3>
+                <div class="card-actions text-secondary" id="check-time"></div></div>
+              <ul class="list-group list-group-flush checks" id="check-list"></ul>
+            </div>
+          </div>
 
-      <div class="panel">
-        <div class="panel-head"><h2>Task hôm nay</h2><span class="muted" id="tasks-updated"></span></div>
-        <div id="task-groups" class="task-groups"></div>
-      </div>
+          <div class="col-lg-7">
+            <div class="card">
+              <div class="card-header"><h3 class="card-title">Điểm mỗi ngày</h3><div class="card-actions text-secondary">14 ngày</div></div>
+              <div class="card-body"><div class="chart" id="chart-daily"></div></div>
+            </div>
+          </div>
+          <div class="col-lg-5">
+            <div class="card">
+              <div class="card-header"><h3 class="card-title">Số điểm hiện có</h3><div class="card-actions text-secondary">30 ngày</div></div>
+              <div class="card-body"><div class="chart" id="chart-balance"></div></div>
+            </div>
+          </div>
+
+          <div class="col-12">
+            <div class="card">
+              <div class="card-header"><h3 class="card-title">Task hôm nay</h3><div class="card-actions text-secondary" id="tasks-updated"></div></div>
+              <div class="card-body"><div id="task-groups" class="task-groups"></div></div>
+            </div>
+          </div>
+        </div>
+      </div></div>
     </section>
 
     <!-- ======================== Tài khoản ======================== -->
-    <section class="page" id="page-profiles" hidden>
-      <header class="top">
-        <h1 class="page-title">Tài khoản</h1>
-        <div class="actions">
-          <button class="btn ghost" id="btn-add">Thêm tài khoản</button>
-          <button class="btn danger" id="btn-stop-all">Dừng tất cả</button>
-          <button class="btn primary" id="btn-run-all">Chạy tất cả</button>
+    <section class="view" id="page-profiles" hidden>
+      <div class="page-header"><div class="container-xl d-flex flex-wrap gap-2 align-items-center">
+        <h2 class="page-title">Tài khoản</h2>
+        <div class="ms-auto btn-list">
+          <button class="btn" id="btn-add"><i class="ti ti-user-plus"></i>Thêm tài khoản</button>
+          <button class="btn btn-outline-danger" id="btn-stop-all"><i class="ti ti-player-stop"></i>Dừng tất cả</button>
+          <button class="btn btn-primary" id="btn-run-all"><i class="ti ti-player-play"></i>Chạy tất cả</button>
         </div>
-      </header>
-      <div class="panel flush">
-        <table class="table" id="profile-table">
-          <thead><tr><th></th><th>Tài khoản</th><th>Chế độ</th><th>Trạng thái</th><th class="r">Điểm</th><th class="r">Hôm nay</th><th>Tiến độ</th><th></th></tr></thead>
-          <tbody></tbody>
-        </table>
-      </div>
-      <div class="panel">
-        <div class="panel-head"><h2>Việc bot sẽ làm khi chạy</h2></div>
-        <div class="toggles" id="task-toggles"></div>
-        <div class="inline-field">
-          <label for="max-parallel">Số tài khoản chạy cùng lúc</label>
-          <input type="number" id="max-parallel" min="1" max="10">
+      </div></div>
+      <div class="page-body"><div class="container-xl">
+        <div class="row row-cards">
+          <div class="col-12">
+            <div class="card">
+              <div class="table-responsive">
+                <table class="table table-vcenter card-table" id="profile-table">
+                  <thead><tr><th></th><th>Tài khoản</th><th>Chế độ</th><th>Trạng thái</th><th class="text-end">Điểm</th>
+                    <th class="text-end">Hôm nay</th><th>Tiến độ</th><th class="w-1"></th></tr></thead>
+                  <tbody></tbody>
+                </table>
+              </div>
+            </div>
+          </div>
+          <div class="col-12">
+            <div class="card">
+              <div class="card-header"><h3 class="card-title">Việc bot sẽ làm khi chạy</h3></div>
+              <div class="list-group list-group-flush" id="task-toggles"></div>
+              <div class="card-footer d-flex align-items-center gap-3">
+                <label for="max-parallel" class="form-label m-0">Số tài khoản chạy cùng lúc</label>
+                <input type="number" class="form-control w-auto" id="max-parallel" min="1" max="10">
+              </div>
+            </div>
+          </div>
         </div>
-      </div>
+      </div></div>
     </section>
 
     <!-- ======================== Nhật ký ======================== -->
-    <section class="page" id="page-log" hidden>
-      <header class="top">
-        <h1 class="page-title">Nhật ký</h1>
-        <div class="actions">
-          <select id="log-filter"></select>
-          <button class="btn ghost" id="btn-clear-log">Xóa nhật ký</button>
+    <section class="view" id="page-log" hidden>
+      <div class="page-header"><div class="container-xl d-flex flex-wrap gap-2 align-items-center">
+        <h2 class="page-title">Nhật ký</h2>
+        <div class="ms-auto btn-list">
+          <select class="form-select w-auto" id="log-filter"></select>
+          <button class="btn" id="btn-copy-log"><i class="ti ti-copy"></i>Sao chép</button>
+          <button class="btn" id="btn-clear-log"><i class="ti ti-trash"></i>Xóa nhật ký</button>
         </div>
-      </header>
-      <div class="logbox" id="logbox"></div>
+      </div></div>
+      <div class="page-body"><div class="container-xl">
+        <div class="card"><div class="logbox" id="logbox"></div></div>
+      </div></div>
     </section>
 
     <!-- ======================== Cài đặt ======================== -->
-    <section class="page" id="page-settings" hidden>
-      <header class="top"><h1 class="page-title">Cài đặt</h1>
-        <div class="actions"><button class="btn primary" id="btn-save-settings">Lưu cài đặt</button></div>
-      </header>
-      <div class="grid2">
-        <div class="panel form" id="settings-form"></div>
-        <div class="panel help">
-          <h2>Chạy nhiều cửa sổ cùng lúc</h2>
-          <p><strong>Cửa sổ riêng</strong> (nên dùng): mỗi tài khoản có thư mục riêng trong <code>data/profiles</code>. Bấm <em>Đăng nhập</em> một lần cho mỗi tài khoản rồi chạy.</p>
-          <p><strong>Gắn vào Edge đang mở</strong>: tự mở Edge với cổng debug và thư mục riêng, đăng nhập trong đó, rồi thêm tài khoản chế độ này với cổng tương ứng:</p>
-          <pre>msedge.exe --remote-debugging-port=9222 --user-data-dir="C:\EdgeRewards1"</pre>
+    <section class="view" id="page-settings" hidden>
+      <div class="page-header"><div class="container-xl d-flex align-items-center">
+        <h2 class="page-title">Cài đặt</h2>
+        <div class="ms-auto"><button class="btn btn-primary" id="btn-save-settings"><i class="ti ti-device-floppy"></i>Lưu cài đặt</button></div>
+      </div></div>
+      <div class="page-body"><div class="container-xl">
+        <div class="row row-cards">
+          <div class="col-lg-7">
+            <div class="card">
+              <div class="card-header"><h3 class="card-title">Search &amp; trình duyệt</h3></div>
+              <div class="card-body" id="settings-form"></div>
+            </div>
+          </div>
+          <div class="col-lg-5 d-flex flex-column gap-3">
+            <div class="card">
+              <div class="card-header"><h3 class="card-title">Giao diện</h3></div>
+              <div class="card-body">
+                <div class="form-selectgroup w-100" id="theme-choice">
+                  <label class="form-selectgroup-item flex-fill"><input type="radio" name="theme" value="light" class="form-selectgroup-input">
+                    <span class="form-selectgroup-label"><i class="ti ti-sun me-1"></i>Sáng</span></label>
+                  <label class="form-selectgroup-item flex-fill"><input type="radio" name="theme" value="dark" class="form-selectgroup-input">
+                    <span class="form-selectgroup-label"><i class="ti ti-moon me-1"></i>Tối</span></label>
+                  <label class="form-selectgroup-item flex-fill"><input type="radio" name="theme" value="system" class="form-selectgroup-input">
+                    <span class="form-selectgroup-label"><i class="ti ti-device-desktop me-1"></i>Theo Windows</span></label>
+                </div>
+              </div>
+            </div>
+            <div class="card">
+              <div class="card-header"><h3 class="card-title">Chạy nhiều cửa sổ cùng lúc</h3></div>
+              <div class="card-body help">
+                <p><strong>Cửa sổ riêng</strong> (nên dùng): mỗi tài khoản có thư mục riêng trong <code>data/profiles</code>. Bấm <em>Đăng nhập</em> một lần cho mỗi tài khoản rồi chạy.</p>
+                <p><strong>Gắn vào Edge đang mở</strong>: tự mở Edge với cổng debug và thư mục riêng, đăng nhập trong đó, rồi thêm tài khoản chế độ này với cổng tương ứng:</p>
+                <pre>msedge.exe --remote-debugging-port=9222 --user-data-dir="C:\EdgeRewards1"</pre>
+              </div>
+            </div>
+          </div>
         </div>
-      </div>
+      </div></div>
     </section>
-  </main>
+
+    <!-- ======================== Hướng dẫn ======================== -->
+    <section class="view" id="page-guide" hidden>
+      <div class="page-header"><div class="container-xl"><h2 class="page-title">Hướng dẫn sử dụng</h2>
+        <div class="text-secondary mt-1">Đọc một lần là dùng được. Bấm từng mục để mở.</div></div></div>
+      <div class="page-body"><div class="container-xl">
+        <div class="row row-cards">
+          <div class="col-lg-8">
+            <div class="card"><div class="card-body">
+              <div class="accordion" id="guide">
+
+                <div class="accordion-item">
+                  <h2 class="accordion-header"><button class="accordion-button" type="button" data-bs-toggle="collapse" data-bs-target="#g-start">
+                    <i class="ti ti-rocket me-2"></i>Bắt đầu trong 4 bước</button></h2>
+                  <div id="g-start" class="accordion-collapse collapse show" data-bs-parent="#guide"><div class="accordion-body">
+                    <ol class="steps-list">
+                      <li><b>Thêm tài khoản</b>: trang <em>Tài khoản</em> → <em>Thêm tài khoản</em>. Mỗi tài khoản Microsoft một dòng.</li>
+                      <li><b>Đăng nhập</b> (chỉ 1 lần): bấm <em>Đăng nhập</em> ở dòng đó. Cửa sổ mở 2 tab: đăng nhập ở tab Rewards,
+                        rồi xem tab <b>bing.com</b> góc phải phải là <b>cùng tài khoản</b>. Xong thì đóng cửa sổ.</li>
+                      <li><b>Kiểm tra</b>: bot tự chẩn đoán (không search) và báo từng mục ✓ / ! / ✕ kèm cách sửa.</li>
+                      <li><b>Chạy</b>: chọn việc ở mục <em>Việc bot sẽ làm khi chạy</em>, rồi bấm <em>Chạy</em> (1 tài khoản) hoặc <em>Chạy tất cả</em>.</li>
+                    </ol>
+                  </div></div>
+                </div>
+
+                <div class="accordion-item">
+                  <h2 class="accordion-header"><button class="accordion-button collapsed" type="button" data-bs-toggle="collapse" data-bs-target="#g-tasks">
+                    <i class="ti ti-checklist me-2"></i>Bot làm được gì</button></h2>
+                  <div id="g-tasks" class="accordion-collapse collapse" data-bs-parent="#guide"><div class="accordion-body">
+                    <ul>
+                      <li><b>Daily Set, Keep earning</b>: bấm từng thẻ, làm quiz và poll cơ bản.</li>
+                      <li><b>Search PC / Search Mobile</b>: tìm đến khi đủ 90 / 60 điểm. Cứ 3 lượt đọc lại điểm; 6 lượt liền không được cộng thì dừng và ghi lý do.</li>
+                      <li><b>Browse</b>: lướt web N phút cho mục <em>Edge – Minutes</em>. Mục này được Edge tính theo thời gian dùng cửa sổ Edge,
+                        nên <b>đừng bật Chạy ẩn</b> khi cần Browse.</li>
+                      <li><b>Search ảnh</b>: tìm trên Bing Images. <b>Không</b> được tính cho <em>Visual Search</em> (xem mục dưới).</li>
+                    </ul>
+                  </div></div>
+                </div>
+
+                <div class="accordion-item">
+                  <h2 class="accordion-header"><button class="accordion-button collapsed" type="button" data-bs-toggle="collapse" data-bs-target="#g-manual">
+                    <i class="ti ti-hand-finger me-2"></i>Việc phải làm tay</button></h2>
+                  <div id="g-manual" class="accordion-collapse collapse" data-bs-parent="#guide"><div class="accordion-body">
+                    <ul>
+                      <li><b>Bing App – Check-in</b> (Bing App Streak): mở app Bing trên điện thoại mỗi ngày.</li>
+                      <li><b>Visual Search</b>: trên bing.com bấm biểu tượng camera <em>Search using an image</em> (hoặc camera trong app Bing) và tìm bằng 1 ảnh.</li>
+                    </ul>
+                    <p class="text-secondary m-0">Hai việc này giữ các chuỗi streak, giúp nhận dấu cho Stamp bonus.</p>
+                  </div></div>
+                </div>
+
+                <div class="accordion-item">
+                  <h2 class="accordion-header"><button class="accordion-button collapsed" type="button" data-bs-toggle="collapse" data-bs-target="#g-streak">
+                    <i class="ti ti-flame me-2"></i>Streak &amp; Stamp bonus</button></h2>
+                  <div id="g-streak" class="accordion-collapse collapse" data-bs-parent="#guide"><div class="accordion-body">
+                    <p>Mỗi chuỗi streak (Bing Search, Daily Set, Bing App, Visual Search) có 7 ô cho 7 ngày. Làm đủ việc trong ngày thì ô hôm nay được tô.
+                      Giữ các chuỗi để nhận dấu; đủ <b>12 dấu</b> thì nhận <b>+1.000 điểm</b>.</p>
+                    <p class="m-0">Ở trang Tổng quan: ô <span class="sday on d-inline-grid align-middle"><i class="ti ti-check"></i></span> là ngày đã xong,
+                      ô <span class="sday today d-inline-grid align-middle"></span> là hôm nay chưa làm.</p>
+                  </div></div>
+                </div>
+
+                <div class="accordion-item">
+                  <h2 class="accordion-header"><button class="accordion-button collapsed" type="button" data-bs-toggle="collapse" data-bs-target="#g-auto">
+                    <i class="ti ti-calendar-time me-2"></i>Chạy tự động hằng ngày</button></h2>
+                  <div id="g-auto" class="accordion-collapse collapse" data-bs-parent="#guide"><div class="accordion-body">
+                    <p>Tạo task trong <b>Windows Task Scheduler</b>, thư mục bắt đầu là thư mục dự án, lệnh:</p>
+                    <pre>python -m rewards_bot --run-all --headless</pre>
+                    <p class="text-secondary m-0">Lệnh này chạy ẩn nên phần Browse sẽ không được tính. Chỉ chạy được khi cửa sổ app đang đóng.</p>
+                  </div></div>
+                </div>
+
+                <div class="accordion-item">
+                  <h2 class="accordion-header"><button class="accordion-button collapsed" type="button" data-bs-toggle="collapse" data-bs-target="#g-fix">
+                    <i class="ti ti-tool me-2"></i>Xử lý lỗi thường gặp</button></h2>
+                  <div id="g-fix" class="accordion-collapse collapse" data-bs-parent="#guide"><div class="accordion-body">
+                    <dl class="fix-list">
+                      <dt>bing.com đăng nhập sai tài khoản</dt><dd>Bấm <em>Đăng nhập</em>, đăng xuất ở tab bing.com rồi đăng nhập lại đúng tài khoản.</dd>
+                      <dt>Search không được cộng điểm</dt><dd>Bấm <em>Kiểm tra</em>. Thử search tay 1 lượt trên điện thoại / máy: nếu tay cũng không lên thì Microsoft đang tạm không tính cho tài khoản đó.</dd>
+                      <dt>"Profile đang mở trong một cửa sổ trình duyệt khác"</dt><dd>Đóng cửa sổ Edge đang dùng thư mục của tài khoản đó rồi chạy lại.</dd>
+                      <dt>"không vào được … bỏ qua trang này"</dt><dd>Mạng của bạn chặn trang đó (ví dụ bbc.com). Không sao, bot tự chuyển trang khác.</dd>
+                      <dt>Cần gửi lỗi cho người khác</dt><dd>Trang <em>Nhật ký</em> → <em>Sao chép</em>, hoặc gửi file <code>data/logs/&lt;ngày&gt;.log</code>.</dd>
+                    </dl>
+                  </div></div>
+                </div>
+
+              </div>
+            </div></div>
+          </div>
+          <div class="col-lg-4">
+            <div class="card">
+              <div class="card-header"><h3 class="card-title"><i class="ti ti-folder me-2"></i>Dữ liệu lưu ở đâu</h3></div>
+              <div class="list-group list-group-flush small">
+                <div class="list-group-item"><code>data/profiles/</code><div class="text-secondary">Phiên đăng nhập của từng tài khoản</div></div>
+                <div class="list-group-item"><code>data/points_history.json</code><div class="text-secondary">Điểm mỗi ngày (biểu đồ)</div></div>
+                <div class="list-group-item"><code>data/logs/</code><div class="text-secondary">Nhật ký, giữ 14 ngày</div></div>
+                <div class="list-group-item"><code>data/settings.json</code><div class="text-secondary">Cài đặt và danh sách tài khoản</div></div>
+              </div>
+              <div class="card-footer text-secondary small">Thư mục <code>data/</code> chỉ tài khoản Windows của bạn đọc được và không bao giờ được đưa lên git.</div>
+            </div>
+            <div class="alert alert-warning mt-3" role="alert">
+              <div class="d-flex gap-2"><i class="ti ti-alert-triangle"></i>
+                <div>Microsoft Rewards cấm dùng bot. Tài khoản có thể bị khóa hoặc mất điểm. Bạn tự chịu rủi ro.</div></div>
+            </div>
+          </div>
+        </div>
+      </div></div>
+    </section>
+  </div>
 </div>
 
-<div class="tooltip" id="tooltip" hidden></div>
-
-<dialog id="profile-dialog">
+<dialog id="profile-dialog" class="dlg">
   <form method="dialog" id="profile-form">
-    <h2 id="pd-title">Thêm tài khoản</h2>
-    <label>Tên<input name="name" required maxlength="40"></label>
-    <fieldset>
-      <legend>Cách mở trình duyệt</legend>
-      <label class="radio"><input type="radio" name="mode" value="managed" checked> Cửa sổ riêng do app mở</label>
-      <label class="radio"><input type="radio" name="mode" value="cdp"> Gắn vào Edge đang mở (cổng debug)</label>
-    </fieldset>
-    <label id="pd-port">Cổng debug<input name="cdp_port" type="number" value="9222" min="1024" max="65535">
-      <small class="muted">Mọi chương trình trên máy đều điều khiển được Edge qua cổng này. Chỉ mở Edge debug khi
-      cần chạy bot, và không dùng <code>--remote-debugging-address</code> (sẽ lộ cổng ra mạng LAN).</small></label>
-    <p class="error" id="pd-error"></p>
-    <div class="dlg-actions">
-      <button class="btn ghost" value="cancel" formnovalidate>Hủy</button>
-      <button class="btn primary" value="ok" id="pd-save">Lưu</button>
+    <div class="dlg-head"><h3 class="m-0" id="pd-title">Thêm tài khoản</h3>
+      <button class="btn-close" value="cancel" formnovalidate aria-label="Đóng"></button></div>
+    <div class="dlg-body">
+      <label class="form-label" for="pd-name">Tên</label>
+      <input id="pd-name" name="name" class="form-control" required maxlength="40">
+      <div class="form-label mt-3">Cách mở trình duyệt</div>
+      <div class="form-selectgroup form-selectgroup-boxes d-flex flex-column gap-2">
+        <label class="form-selectgroup-item">
+          <input type="radio" name="mode" value="managed" class="form-selectgroup-input" checked>
+          <span class="form-selectgroup-label d-flex align-items-center gap-3 p-3">
+            <span class="form-selectgroup-check"></span>
+            <span><b>Cửa sổ riêng do app mở</b><span class="d-block text-secondary small">Nên dùng. Mỗi tài khoản một thư mục đăng nhập riêng.</span></span>
+          </span></label>
+        <label class="form-selectgroup-item">
+          <input type="radio" name="mode" value="cdp" class="form-selectgroup-input">
+          <span class="form-selectgroup-label d-flex align-items-center gap-3 p-3">
+            <span class="form-selectgroup-check"></span>
+            <span><b>Gắn vào Edge đang mở</b><span class="d-block text-secondary small">Edge bạn tự mở với cổng debug.</span></span>
+          </span></label>
+      </div>
+      <div id="pd-port" class="mt-3">
+        <label class="form-label" for="pd-cdp">Cổng debug</label>
+        <input id="pd-cdp" name="cdp_port" type="number" class="form-control" value="9222" min="1024" max="65535">
+        <div class="form-hint mt-2">Mọi chương trình trên máy đều điều khiển được Edge qua cổng này. Chỉ mở Edge debug khi
+          cần chạy bot, và không dùng <code>--remote-debugging-address</code> (sẽ lộ cổng ra mạng LAN).</div>
+      </div>
+      <div class="text-danger mt-2" id="pd-error"></div>
+    </div>
+    <div class="dlg-foot">
+      <button class="btn" value="cancel" formnovalidate>Hủy</button>
+      <button class="btn btn-primary" value="ok" id="pd-save">Lưu</button>
     </div>
   </form>
 </dialog>
 
-<div class="toast" id="toast" hidden></div>
+<div class="app-toast" id="toast" role="status" hidden></div>
+<script src="vendor/tabler/tabler.min.js"></script>
+<script src="vendor/apexcharts/apexcharts.min.js"></script>
 <script src="app.js"></script>
 </body>
 </html>
