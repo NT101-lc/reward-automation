@@ -1,0 +1,499 @@
+/* Giao diện "Cyberpunk" (Edgerunners). Chỉ áp dụng khi <html data-skin="cyberpunk">; luôn đi kèm data-bs-theme="dark".
+   Màu Night City: nền xanh đêm, vàng neon cho hành động chính và con số điểm, hồng neon cho lỗi/Mobile, cyan cho PC.
+   Chữ thường: Bahnschrift có sẵn trên Windows (dáng DIN kỹ thuật). Tiêu đề, con số, nút: Chakra Petch (OFL, có tiếng Việt,
+   nằm sẵn trong vendor/fonts vì CSP không cho tải font ngoài). Đường chân trời assets/skyline.svg do app tự vẽ. */
+
+@font-face { font-family: "Chakra Petch"; font-weight: 500; font-display: swap; src: url("vendor/fonts/chakra-petch-latin-500-normal.woff2") format("woff2");
+  unicode-range: U+0000-00FF, U+0131, U+0152-0153, U+02BB-02BC, U+02C6, U+02DA, U+02DC, U+0304, U+0308, U+0329, U+2000-206F, U+2074, U+20AC, U+2122, U+2191, U+2193, U+2212, U+2215, U+FEFF, U+FFFD; }
+@font-face { font-family: "Chakra Petch"; font-weight: 700; font-display: swap; src: url("vendor/fonts/chakra-petch-latin-700-normal.woff2") format("woff2");
+  unicode-range: U+0000-00FF, U+0131, U+0152-0153, U+02BB-02BC, U+02C6, U+02DA, U+02DC, U+0304, U+0308, U+0329, U+2000-206F, U+2074, U+20AC, U+2122, U+2191, U+2193, U+2212, U+2215, U+FEFF, U+FFFD; }
+@font-face { font-family: "Chakra Petch"; font-weight: 500; font-display: swap; src: url("vendor/fonts/chakra-petch-latin-ext-500-normal.woff2") format("woff2");
+  unicode-range: U+0100-02AF, U+0304, U+0308, U+0329, U+1E00-1E9F, U+1EF2-1EFF, U+2020, U+20A0-20AB, U+20AD-20C0, U+2113, U+2C60-2C7F, U+A720-A7FF; }
+@font-face { font-family: "Chakra Petch"; font-weight: 700; font-display: swap; src: url("vendor/fonts/chakra-petch-latin-ext-700-normal.woff2") format("woff2");
+  unicode-range: U+0100-02AF, U+0304, U+0308, U+0329, U+1E00-1E9F, U+1EF2-1EFF, U+2020, U+20A0-20AB, U+20AD-20C0, U+2113, U+2C60-2C7F, U+A720-A7FF; }
+@font-face { font-family: "Chakra Petch"; font-weight: 500; font-display: swap; src: url("vendor/fonts/chakra-petch-vietnamese-500-normal.woff2") format("woff2");
+  unicode-range: U+0102-0103, U+0110-0111, U+0128-0129, U+0168-0169, U+01A0-01A1, U+01AF-01B0, U+0300-0301, U+0303-0304, U+0308-0309, U+0323, U+0329, U+1EA0-1EF9, U+20AB; }
+@font-face { font-family: "Chakra Petch"; font-weight: 700; font-display: swap; src: url("vendor/fonts/chakra-petch-vietnamese-700-normal.woff2") format("woff2");
+  unicode-range: U+0102-0103, U+0110-0111, U+0128-0129, U+0168-0169, U+01A0-01A1, U+01AF-01B0, U+0300-0301, U+0303-0304, U+0308-0309, U+0323, U+0329, U+1EA0-1EF9, U+20AB; }
+
+[data-skin="cyberpunk"] {
+  --cp-display: "Chakra Petch", "Bahnschrift", sans-serif;
+  --cp-night: #0b1022;
+  --cp-panel: #121a33;
+  --cp-panel-2: #18223f;
+  --cp-line: #26335c;
+  --cp-text: #e8ecff;
+  --cp-dim: #8b96c4;
+  --cp-yellow: #fcee0a;
+  --cp-pink: #ff2a6d;
+  --cp-cyan: #05d9e8;
+  --cp-violet: #7b2ff7;
+  --cp-cut: 14px;
+
+  --tblr-font-sans-serif: "Bahnschrift", "Segoe UI Variable", "Segoe UI", sans-serif;
+  --tblr-body-font-family: var(--tblr-font-sans-serif);
+  --tblr-body-bg: var(--cp-night);
+  --tblr-body-bg-rgb: 11, 16, 34;
+  --tblr-body-color: var(--cp-text);
+  --tblr-body-color-rgb: 232, 236, 255;
+  --tblr-bg-surface: var(--cp-panel);
+  --tblr-bg-surface-secondary: var(--cp-panel-2);
+  --tblr-bg-surface-tertiary: var(--cp-panel-2);
+  --tblr-border-color: var(--cp-line);
+  --tblr-border-color-translucent: rgba(38, 51, 92, .6);
+  --tblr-secondary: var(--cp-dim);
+  --tblr-secondary-color: var(--cp-dim);
+  --tblr-primary: var(--cp-yellow);
+  --tblr-primary-rgb: 252, 238, 10;
+  --tblr-success: var(--cp-cyan);
+  --tblr-success-rgb: 5, 217, 232;
+  --tblr-danger: var(--cp-pink);
+  --tblr-danger-rgb: 255, 42, 109;
+  --tblr-warning: var(--cp-yellow);
+  --tblr-border-radius: 0;
+  --tblr-border-radius-sm: 0;
+  --tblr-border-radius-lg: 0;
+
+  --rb-gold: var(--cp-yellow);
+  --rb-gold-soft: rgba(252, 238, 10, .16);
+  --rb-hero-1: #0d1430;
+  --rb-hero-2: #1a0f3a;
+}
+
+[data-skin="cyberpunk"] body {
+  background:
+    linear-gradient(rgba(5, 217, 232, .035) 1px, transparent 1px) 0 0 / 100% 32px,
+    linear-gradient(90deg, rgba(5, 217, 232, .035) 1px, transparent 1px) 0 0 / 32px 100%,
+    var(--cp-night);
+  letter-spacing: .01em;
+}
+[data-skin="cyberpunk"] h1, [data-skin="cyberpunk"] h2, [data-skin="cyberpunk"] h3,
+[data-skin="cyberpunk"] .page-title, [data-skin="cyberpunk"] .card-title {
+  font-stretch: semi-condensed;
+  font-weight: 600;
+  letter-spacing: .02em;
+}
+[data-skin="cyberpunk"] ::selection { background: var(--cp-pink); color: #fff; }
+
+/* ---------------------------------------------------------------- khung: góc vát chéo, viền neon mảnh */
+[data-skin="cyberpunk"] .card {
+  background: var(--cp-panel);
+  border: 1px solid var(--cp-line);
+  border-radius: 0;
+  box-shadow: none;
+  clip-path: polygon(0 0, calc(100% - var(--cp-cut)) 0, 100% var(--cp-cut), 100% 100%, var(--cp-cut) 100%, 0 calc(100% - var(--cp-cut)));
+  position: relative;
+}
+/* vạch neon ở góc vát trên-phải: dấu hiệu nhận ra khung kiểu Cyberpunk */
+[data-skin="cyberpunk"] .card::before {
+  content: "";
+  position: absolute;
+  top: 0;
+  right: 0;
+  width: calc(var(--cp-cut) * 1.42);
+  height: 1px;
+  background: var(--cp-cyan);
+  transform-origin: right top;
+  transform: translateX(-1px) rotate(45deg) translateX(100%);
+  pointer-events: none;
+}
+[data-skin="cyberpunk"] .card-header { border-bottom: 1px solid var(--cp-line); }
+[data-skin="cyberpunk"] .card-title i { color: var(--cp-cyan) !important; }
+[data-skin="cyberpunk"] .list-group-item { background: transparent; border-color: var(--cp-line); }
+
+/* ---------------------------------------------------------------- nút */
+[data-skin="cyberpunk"] .btn {
+  border-radius: 0;
+  font-stretch: semi-condensed;
+  font-weight: 600;
+  letter-spacing: .03em;
+  background: transparent;
+  border-color: var(--cp-line);
+  color: var(--cp-text);
+  clip-path: polygon(0 0, calc(100% - 8px) 0, 100% 8px, 100% 100%, 8px 100%, 0 calc(100% - 8px));
+}
+[data-skin="cyberpunk"] .btn:hover { border-color: var(--cp-cyan); color: var(--cp-cyan); }
+[data-skin="cyberpunk"] .btn-primary {
+  --tblr-btn-color: var(--cp-night);
+  --tblr-btn-bg: var(--cp-yellow);
+  --tblr-btn-border-color: var(--cp-yellow);
+  --tblr-btn-hover-color: var(--cp-night);
+  --tblr-btn-hover-bg: #fff35a;
+  --tblr-btn-hover-border-color: #fff35a;
+  --tblr-btn-active-bg: #e6d800;
+  --tblr-btn-disabled-bg: #6b6620;
+  --tblr-btn-disabled-border-color: #6b6620;
+  --tblr-btn-disabled-color: var(--cp-night);
+  background: var(--tblr-btn-bg);
+  color: var(--tblr-btn-color);
+  border-color: var(--tblr-btn-border-color);
+}
+[data-skin="cyberpunk"] .btn-primary:hover { color: var(--cp-night); }
+[data-skin="cyberpunk"] .btn-outline-danger, [data-skin="cyberpunk"] .btn-ghost-danger { color: var(--cp-pink); border-color: var(--cp-pink); }
+[data-skin="cyberpunk"] .btn-outline-danger:hover { background: var(--cp-pink); color: #fff; }
+[data-skin="cyberpunk"] :focus-visible { outline: 2px solid var(--cp-cyan); outline-offset: 2px; }
+
+/* ---------------------------------------------------------------- thanh bên */
+[data-skin="cyberpunk"] .side {
+  background: #070a17;
+  border-right: 1px solid var(--cp-line);
+}
+[data-skin="cyberpunk"] .brand-mark {
+  border-radius: 0;
+  background: var(--cp-yellow);
+  color: var(--cp-night);
+  clip-path: polygon(0 0, 100% 0, 100% 70%, 70% 100%, 0 100%);
+}
+[data-skin="cyberpunk"] .brand strong { font-stretch: semi-condensed; letter-spacing: .04em; }
+[data-skin="cyberpunk"] .side .navbar-nav .nav-link { border-radius: 0; border-left: 2px solid transparent; color: var(--cp-dim); }
+[data-skin="cyberpunk"] .side .navbar-nav .nav-link:hover { color: var(--cp-text); }
+[data-skin="cyberpunk"] .side .navbar-nav .nav-link.active {
+  background: linear-gradient(90deg, rgba(252, 238, 10, .14), transparent);
+  border-left-color: var(--cp-yellow);
+  color: var(--cp-yellow);
+}
+[data-skin="cyberpunk"] .side .nav-link.active .nav-link-icon { color: var(--cp-yellow); }
+[data-skin="cyberpunk"] .theme-switch, [data-skin="cyberpunk"] .theme-switch button { border-radius: 0; }
+[data-skin="cyberpunk"] .theme-switch button.active { background: var(--cp-yellow); color: var(--cp-night); }
+[data-skin="cyberpunk"] .run-state.on .status-dot { background: var(--cp-cyan); box-shadow: 0 0 8px var(--cp-cyan); animation: none; }
+
+/* ---------------------------------------------------------------- khối điểm: điểm nhấn duy nhất (glitch neon) */
+[data-skin="cyberpunk"] .hero {
+  background:
+    repeating-linear-gradient(0deg, rgba(255, 255, 255, .025) 0 1px, transparent 1px 3px),
+    radial-gradient(120% 90% at 100% 0%, rgba(255, 42, 109, .28), transparent 55%),
+    radial-gradient(90% 80% at 0% 100%, rgba(5, 217, 232, .18), transparent 60%),
+    linear-gradient(160deg, var(--rb-hero-1), var(--rb-hero-2));
+  border: 1px solid rgba(255, 42, 109, .45);
+}
+[data-skin="cyberpunk"] .hero::before { background: var(--cp-yellow); }
+[data-skin="cyberpunk"] .hero-avatar { border-radius: 0; background: var(--cp-pink); color: #fff; }
+[data-skin="cyberpunk"] .hero-figure .num {
+  color: var(--cp-yellow);
+  font-stretch: condensed;
+  font-weight: 700;
+  font-size: 64px;
+  letter-spacing: 0;
+  text-shadow: -2px 0 var(--cp-pink), 2px 0 var(--cp-cyan), 0 0 18px rgba(252, 238, 10, .35);
+  animation: cp-glitch 1.1s steps(1) 1;
+}
+[data-skin="cyberpunk"] .hero-figure .unit { color: var(--cp-cyan); text-transform: none; }
+[data-skin="cyberpunk"] .hero-mini { border-top-color: rgba(5, 217, 232, .3); }
+[data-skin="cyberpunk"] .hero-mini .val { color: #fff; }
+@keyframes cp-glitch {
+  0%   { transform: none; text-shadow: -2px 0 var(--cp-pink), 2px 0 var(--cp-cyan); }
+  12%  { transform: translateX(-3px) skewX(-8deg); text-shadow: 4px 0 var(--cp-pink), -4px 0 var(--cp-cyan); clip-path: inset(0 0 45% 0); }
+  24%  { transform: translateX(3px); clip-path: inset(40% 0 0 0); }
+  36%  { transform: none; clip-path: none; text-shadow: -6px 0 var(--cp-pink), 6px 0 var(--cp-cyan); }
+  48%  { transform: translateX(-1px) skewX(4deg); clip-path: inset(10% 0 60% 0); }
+  60%, 100% { transform: none; clip-path: none; text-shadow: -2px 0 var(--cp-pink), 2px 0 var(--cp-cyan), 0 0 18px rgba(252, 238, 10, .35); }
+}
+
+/* ---------------------------------------------------------------- thẻ đóng dấu, streak, tiến độ */
+[data-skin="cyberpunk"] .chip { border-radius: 0; background: var(--cp-panel); clip-path: polygon(0 0, calc(100% - 10px) 0, 100% 10px, 100% 100%, 0 100%); }
+[data-skin="cyberpunk"] .chip.active { border-color: var(--cp-yellow); box-shadow: inset 0 -2px 0 var(--cp-yellow); }
+[data-skin="cyberpunk"] .chip .avatar { border-radius: 0 !important; }
+[data-skin="cyberpunk"] .stamp.done .disc { border-color: var(--cp-yellow); box-shadow: 0 0 0 3px rgba(252, 238, 10, .18), 0 0 14px rgba(252, 238, 10, .35); }
+[data-skin="cyberpunk"] .stamp .check { background: var(--cp-yellow); color: var(--cp-night); border-color: var(--cp-panel); }
+/* ô thoi (vuông xoay 45°) rộng ra ~1,4 lần nên thu nhỏ ô và nới khoảng cách để không chồng lên nhau */
+[data-skin="cyberpunk"] .sdot, [data-skin="cyberpunk"] .sday { border-radius: 0; transform: rotate(45deg); }
+[data-skin="cyberpunk"] .stampgrid { grid-template-columns: repeat(6, 26px); gap: 16px 18px; padding: 6px; }
+[data-skin="cyberpunk"] .sdot { width: 26px; height: 26px; font-size: 13px; }
+[data-skin="cyberpunk"] .streak-row .days { gap: 13px; padding: 6px 4px 2px; }
+[data-skin="cyberpunk"] .sday { width: 21px; height: 21px; }
+[data-skin="cyberpunk"] .sdot > *, [data-skin="cyberpunk"] .sday > * { transform: rotate(-45deg); }
+[data-skin="cyberpunk"] .sday { font-size: 0; }
+[data-skin="cyberpunk"] .sday .ti { font-size: 12px; }
+[data-skin="cyberpunk"] .sdot.on, [data-skin="cyberpunk"] .sday.on { background: var(--cp-yellow); border-color: var(--cp-yellow); color: var(--cp-night); box-shadow: 0 0 10px rgba(252, 238, 10, .45); }
+[data-skin="cyberpunk"] .sday.today { border-color: var(--cp-pink); border-style: solid; box-shadow: 0 0 10px rgba(255, 42, 109, .5); }
+[data-skin="cyberpunk"] .sday.on.today { border-color: var(--cp-yellow); }
+[data-skin="cyberpunk"] .streak-row { border-radius: 0; border-color: var(--cp-line); background: rgba(5, 217, 232, .03); }
+[data-skin="cyberpunk"] .daily-streak .flame { border-radius: 0; background: rgba(255, 42, 109, .14); color: var(--cp-pink); }
+[data-skin="cyberpunk"] .progress { border-radius: 0; background: rgba(38, 51, 92, .7); }
+[data-skin="cyberpunk"] .progress-bar { border-radius: 0; box-shadow: 0 0 8px currentColor; }
+[data-skin="cyberpunk"] .badge { border-radius: 0; font-weight: 600; letter-spacing: .03em; }
+[data-skin="cyberpunk"] .bg-green-lt { background: rgba(5, 217, 232, .14) !important; color: var(--cp-cyan) !important; }
+[data-skin="cyberpunk"] .bg-yellow-lt { background: rgba(252, 238, 10, .12) !important; color: var(--cp-yellow) !important; }
+[data-skin="cyberpunk"] .bg-red-lt { background: rgba(255, 42, 109, .15) !important; color: var(--cp-pink) !important; }
+[data-skin="cyberpunk"] .bg-blue-lt { background: rgba(123, 47, 247, .2) !important; color: #b892ff !important; }
+[data-skin="cyberpunk"] .avatar { border-radius: 0; }
+
+/* ---------------------------------------------------------------- bảng, form, nhật ký, hộp thoại */
+[data-skin="cyberpunk"] .table thead th { color: var(--cp-cyan); font-stretch: semi-condensed; letter-spacing: .06em; background: transparent; }
+[data-skin="cyberpunk"] .form-control, [data-skin="cyberpunk"] .form-select {
+  border-radius: 0; background-color: #0e1530; border-color: var(--cp-line); color: var(--cp-text);
+}
+[data-skin="cyberpunk"] .form-control:focus, [data-skin="cyberpunk"] .form-select:focus { border-color: var(--cp-cyan); box-shadow: 0 0 0 2px rgba(5, 217, 232, .25); }
+[data-skin="cyberpunk"] .form-check-input:checked { background-color: var(--cp-yellow); border-color: var(--cp-yellow); }
+[data-skin="cyberpunk"] .form-switch .form-check-input:checked {
+  --tblr-form-switch-bg: url("data:image/svg+xml,%3csvg xmlns='http://www.w3.org/2000/svg' viewBox='-4 -4 8 8'%3e%3ccircle r='3' fill='%230b1022'/%3e%3c/svg%3e");
+}
+[data-skin="cyberpunk"] .form-selectgroup-label { border-radius: 0; }
+[data-skin="cyberpunk"] .form-selectgroup-input:checked + .form-selectgroup-label { border-color: var(--cp-yellow); color: var(--cp-yellow); background: rgba(252, 238, 10, .06); }
+/* nhật ký: màn hình terminal netrunner (scanline, chữ phát sáng, nhãn tài khoản vát góc, con trỏ nhấp nháy) */
+[data-skin="cyberpunk"] .log-head {
+  background: linear-gradient(90deg, rgba(252, 238, 10, .12), transparent 45%), #070a17;
+  border-bottom: 1px solid var(--cp-yellow);
+  color: var(--cp-dim);
+  font-family: var(--cp-display);
+  letter-spacing: .08em;
+  text-transform: uppercase;
+}
+[data-skin="cyberpunk"] .log-dots i { border-radius: 0; width: 14px; height: 6px; background: var(--cp-pink); transform: skewX(-30deg); }
+[data-skin="cyberpunk"] .log-dots i:nth-child(2) { background: var(--cp-yellow); }
+[data-skin="cyberpunk"] .log-dots i:nth-child(3) { background: var(--cp-cyan); }
+[data-skin="cyberpunk"] .log-title { color: var(--cp-yellow); font-weight: 700; text-shadow: 0 0 8px rgba(252, 238, 10, .45); }
+[data-skin="cyberpunk"] .log-count b { color: var(--cp-pink); }
+[data-skin="cyberpunk"] .logbox {
+  background:
+    repeating-linear-gradient(0deg, rgba(5, 217, 232, .035) 0 1px, transparent 1px 3px),
+    radial-gradient(120% 80% at 50% 0%, rgba(5, 217, 232, .07), transparent 70%),
+    #05070f;
+  color: #c9d3ff;
+  text-shadow: 0 0 6px rgba(5, 217, 232, .25);
+}
+[data-skin="cyberpunk"] .logbox .l { grid-template-columns: auto auto auto 1fr; }
+[data-skin="cyberpunk"] .logbox .l::before { content: ">"; color: var(--cp-yellow); font-weight: 700; }
+[data-skin="cyberpunk"] .logbox .l.empty::before { content: "> "; }
+[data-skin="cyberpunk"] .logbox .l:hover { background: linear-gradient(90deg, rgba(5, 217, 232, .10), transparent 80%); }
+[data-skin="cyberpunk"] .logbox .tm { color: rgba(5, 217, 232, .6); }
+[data-skin="cyberpunk"] .logbox .tm::before { content: "["; }
+[data-skin="cyberpunk"] .logbox .tm::after { content: "]"; }
+[data-skin="cyberpunk"] .logbox .nm {
+  --tone: var(--cp-cyan);
+  color: var(--tone);
+  border: 1px solid var(--tone);
+  padding: 0 7px;
+  min-width: 11ch;
+  text-align: center;
+  font: 600 11px/1.5 var(--cp-display);
+  letter-spacing: .06em;
+  text-transform: uppercase;
+  text-shadow: none;
+  background: color-mix(in srgb, var(--tone) 12%, transparent);
+  clip-path: polygon(0 0, calc(100% - 6px) 0, 100% 6px, 100% 100%, 0 100%);
+}
+[data-skin="cyberpunk"] .logbox .nm.tone-1 { --tone: var(--cp-yellow); }
+[data-skin="cyberpunk"] .logbox .nm.tone-2 { --tone: var(--cp-pink); }
+[data-skin="cyberpunk"] .logbox .nm.tone-3 { --tone: #b892ff; }
+[data-skin="cyberpunk"] .logbox .nm.tone-4 { --tone: #3dff9a; }
+[data-skin="cyberpunk"] .logbox .l.er { border-left-color: var(--cp-pink); background: linear-gradient(90deg, rgba(255, 42, 109, .16), transparent 70%); }
+[data-skin="cyberpunk"] .logbox .l.er .msg { color: var(--cp-pink); text-shadow: 0 0 8px rgba(255, 42, 109, .55); }
+[data-skin="cyberpunk"] .logbox .l.er::before { content: "!"; color: var(--cp-pink); }
+[data-skin="cyberpunk"] .logbox .l.warn { border-left-color: var(--cp-yellow); background: linear-gradient(90deg, rgba(252, 238, 10, .08), transparent 70%); }
+[data-skin="cyberpunk"] .logbox .l.warn .msg { color: var(--cp-yellow); }
+[data-skin="cyberpunk"] .logbox .l.ok .msg { color: var(--cp-cyan); text-shadow: 0 0 8px rgba(5, 217, 232, .5); }
+/* con trỏ khối nhấp nháy ở cuối nhật ký */
+[data-skin="cyberpunk"] .logbox::after {
+  content: "";
+  display: inline-block;
+  width: 9px;
+  height: 15px;
+  margin: 4px 16px 0 32px;
+  background: var(--cp-yellow);
+  box-shadow: 0 0 8px var(--cp-yellow);
+  animation: cp-blink 1s steps(1) infinite;
+}
+@keyframes cp-blink { 50% { opacity: 0; } }
+[data-skin="cyberpunk"] pre { border-radius: 0; background: #070a17; border-left: 2px solid var(--cp-cyan); }
+[data-skin="cyberpunk"] .dlg { border-radius: 0; border-color: var(--cp-yellow); background: var(--cp-panel);
+  clip-path: polygon(0 0, calc(100% - 18px) 0, 100% 18px, 100% 100%, 18px 100%, 0 calc(100% - 18px)); }
+[data-skin="cyberpunk"] .dlg-foot { border-radius: 0; background: #0e1530; }
+[data-skin="cyberpunk"] .app-toast { border-radius: 0; background: var(--cp-yellow); color: var(--cp-night); box-shadow: 0 0 18px rgba(252, 238, 10, .35); }
+[data-skin="cyberpunk"] .accordion-item, [data-skin="cyberpunk"] .accordion-button { border-radius: 0 !important; background: transparent; }
+[data-skin="cyberpunk"] .accordion-button:not(.collapsed) { color: var(--cp-yellow); box-shadow: inset 2px 0 0 var(--cp-yellow); }
+[data-skin="cyberpunk"] .alert-warning { border-radius: 0; background: rgba(252, 238, 10, .08); border-color: var(--cp-yellow); color: var(--cp-yellow); }
+[data-skin="cyberpunk"] a { color: var(--cp-cyan); }
+
+/* ApexCharts: nền trong suốt, chữ dịu */
+[data-skin="cyberpunk"] .apexcharts-tooltip.apexcharts-theme-dark {
+  border-radius: 0 !important;
+  border: 1px solid var(--cp-cyan) !important;
+  background: rgba(7, 10, 23, .94) !important;
+  box-shadow: 0 0 14px rgba(5, 217, 232, .3) !important;
+  font-family: var(--cp-display);
+}
+[data-skin="cyberpunk"] .apexcharts-tooltip.apexcharts-theme-dark .apexcharts-tooltip-title {
+  background: rgba(5, 217, 232, .12) !important;
+  border-bottom: 1px solid rgba(5, 217, 232, .35) !important;
+  color: var(--cp-cyan);
+  text-transform: uppercase;
+  letter-spacing: .08em;
+}
+[data-skin="cyberpunk"] .apexcharts-tooltip-marker { border-radius: 0 !important; }
+[data-skin="cyberpunk"] .apexcharts-xaxistooltip { border-radius: 0 !important; background: #070a17 !important; border-color: var(--cp-cyan) !important; color: var(--cp-cyan) !important; }
+[data-skin="cyberpunk"] .apexcharts-xaxistooltip-bottom::before, [data-skin="cyberpunk"] .apexcharts-xaxistooltip-bottom::after { border-bottom-color: var(--cp-cyan) !important; }
+[data-skin="cyberpunk"] .apexcharts-legend-text { color: var(--cp-text) !important; text-transform: uppercase; letter-spacing: .06em; font-size: 11px !important; }
+[data-skin="cyberpunk"] .apexcharts-legend-marker { border-radius: 0 !important; }
+/* nền khu vực biểu đồ: lưới chấm mờ như màn hình radar */
+[data-skin="cyberpunk"] .chart { background: radial-gradient(rgba(5, 217, 232, .10) 1px, transparent 1.2px) 0 0 / 16px 16px; }
+
+/* ================================================================ chi tiết HUD (tham khảo giao diện Cyberpunk 2077 / Edgerunners:
+   chữ vuông in hoa, vạch cảnh báo vàng đen, ngoặc góc, scanline, đường chân trời Night City) */
+
+/* chữ hiển thị: Chakra Petch cho tiêu đề, nút, nhãn, con số */
+[data-skin="cyberpunk"] h1, [data-skin="cyberpunk"] h2, [data-skin="cyberpunk"] h3,
+[data-skin="cyberpunk"] .page-title, [data-skin="cyberpunk"] .card-title, [data-skin="cyberpunk"] .btn,
+[data-skin="cyberpunk"] .badge, [data-skin="cyberpunk"] .nav-link-title, [data-skin="cyberpunk"] .brand strong,
+[data-skin="cyberpunk"] .hero-mini .val, [data-skin="cyberpunk"] .hero-figure .num, [data-skin="cyberpunk"] .daily-streak b,
+[data-skin="cyberpunk"] .table thead th, [data-skin="cyberpunk"] .chip, [data-skin="cyberpunk"] .stamp .pts {
+  font-family: var(--cp-display);
+  font-stretch: normal;
+}
+[data-skin="cyberpunk"] .card-title, [data-skin="cyberpunk"] .btn, [data-skin="cyberpunk"] .badge,
+[data-skin="cyberpunk"] .nav-link-title, [data-skin="cyberpunk"] .tgroup h3, [data-skin="cyberpunk"] .hero-mini .lbl {
+  text-transform: uppercase;
+  letter-spacing: .06em;
+}
+[data-skin="cyberpunk"] .card-title { font-size: 14px; }
+/* hậu tố "//" màu hồng như nhãn HUD trong game */
+[data-skin="cyberpunk"] .card-header .card-title::after {
+  content: "//";
+  margin-left: 10px;
+  color: var(--cp-pink);
+  font-weight: 700;
+  opacity: .8;
+}
+
+/* lớp scanline + viền tối phủ cả trang (không bắt chuột) */
+[data-skin="cyberpunk"] body::after {
+  content: "";
+  position: fixed;
+  inset: 0;
+  z-index: 3000;
+  pointer-events: none;
+  background:
+    repeating-linear-gradient(0deg, rgba(0, 0, 0, .12) 0 1px, transparent 1px 3px),
+    radial-gradient(130% 100% at 50% 40%, transparent 60%, rgba(0, 0, 0, .45));
+}
+[data-skin="cyberpunk"] body {
+  background:
+    radial-gradient(60% 50% at 85% 0%, rgba(123, 47, 247, .18), transparent 70%),
+    radial-gradient(50% 40% at 10% 100%, rgba(255, 42, 109, .10), transparent 70%),
+    linear-gradient(rgba(5, 217, 232, .035) 1px, transparent 1px) 0 0 / 100% 32px,
+    linear-gradient(90deg, rgba(5, 217, 232, .035) 1px, transparent 1px) 0 0 / 32px 100%,
+    var(--cp-night);
+  background-attachment: fixed;
+}
+
+/* ngoặc góc: vàng ở trên-trái, cyan ở dưới-phải */
+[data-skin="cyberpunk"] .card::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  background:
+    linear-gradient(var(--cp-yellow), var(--cp-yellow)) 0 0 / 14px 2px no-repeat,
+    linear-gradient(var(--cp-yellow), var(--cp-yellow)) 0 0 / 2px 14px no-repeat,
+    linear-gradient(var(--cp-cyan), var(--cp-cyan)) 100% 100% / 22px 2px no-repeat;
+  opacity: .75;
+  transition: opacity .2s;
+}
+[data-skin="cyberpunk"] .card:hover::after { opacity: 1; }
+[data-skin="cyberpunk"] .card:hover { border-color: #33457a; }
+
+/* ---------------------------------------------------------------- thanh bên: logo nhấp nháy neon, vạch cảnh báo */
+[data-skin="cyberpunk"] .side {
+  background:
+    linear-gradient(180deg, rgba(123, 47, 247, .10), transparent 40%),
+    #070a17;
+}
+[data-skin="cyberpunk"] .brand-mark { box-shadow: 0 0 16px rgba(252, 238, 10, .45); animation: cp-flicker 6s infinite; }
+[data-skin="cyberpunk"] .brand strong { color: var(--cp-yellow); text-transform: uppercase; text-shadow: 0 0 10px rgba(252, 238, 10, .35); }
+[data-skin="cyberpunk"] .brand div > span { color: var(--cp-cyan); font-family: var(--cp-display); letter-spacing: .08em; text-transform: uppercase; font-size: 11px; }
+[data-skin="cyberpunk"] .side-foot::before {
+  content: "";
+  height: 8px;
+  background: repeating-linear-gradient(-45deg, var(--cp-yellow) 0 8px, #070a17 8px 16px);
+  opacity: .85;
+}
+[data-skin="cyberpunk"] .side .navbar-nav .nav-link.active .nav-link-title { text-shadow: 0 0 10px rgba(252, 238, 10, .5); }
+@keyframes cp-flicker {
+  0%, 18%, 22%, 25%, 53%, 57%, 100% { opacity: 1; }
+  20%, 24%, 55% { opacity: .55; }
+}
+
+/* ---------------------------------------------------------------- khối điểm: đường chân trời Night City */
+[data-skin="cyberpunk"] .hero { overflow: hidden; }
+[data-skin="cyberpunk"] .hero .card-body { position: relative; z-index: 1; }
+[data-skin="cyberpunk"] .hero .card-body::before {
+  content: "EDDIES // SỐ DƯ";
+  position: absolute;
+  top: 10px;
+  right: 22px;
+  font: 700 10px/1 var(--cp-display);
+  letter-spacing: .18em;
+  color: var(--cp-pink);
+  opacity: .8;
+}
+[data-skin="cyberpunk"] .hero::after, [data-skin="cyberpunk"] .hero:hover::after {
+  inset: auto 0 0 0;
+  height: 62%;
+  background: url("assets/skyline.svg") center bottom / cover no-repeat;
+  opacity: .55;
+  z-index: 0;
+}
+
+/* ---------------------------------------------------------------- icon task: khung vát neon, icon phát sáng */
+[data-skin="cyberpunk"] .tico { filter: drop-shadow(0 0 6px rgba(5, 217, 232, .35)); }
+[data-skin="cyberpunk"] .task .thumb, [data-skin="cyberpunk"] .toggle-item .ico {
+  border-radius: 0;
+  background: linear-gradient(135deg, rgba(5, 217, 232, .16), rgba(123, 47, 247, .14)), #0e1530;
+  clip-path: polygon(0 0, calc(100% - 9px) 0, 100% 9px, 100% 100%, 9px 100%, 0 calc(100% - 9px));
+  box-shadow: inset 0 0 0 1px rgba(5, 217, 232, .35);
+}
+[data-skin="cyberpunk"] .task.done .thumb {
+  background: linear-gradient(135deg, rgba(252, 238, 10, .22), rgba(255, 42, 109, .14)), #0e1530;
+  box-shadow: inset 0 0 0 1px rgba(252, 238, 10, .6);
+}
+[data-skin="cyberpunk"] .task.done .thumb .tico { filter: drop-shadow(0 0 7px rgba(252, 238, 10, .55)); }
+[data-skin="cyberpunk"] .task { transition: background .15s; }
+[data-skin="cyberpunk"] .task:hover { background: linear-gradient(90deg, rgba(5, 217, 232, .06), transparent 70%); }
+[data-skin="cyberpunk"] .tgroup h3 { border-bottom: 1px solid var(--cp-line); color: var(--cp-yellow); font-family: var(--cp-display); font-size: 13px; }
+[data-skin="cyberpunk"] .tgroup h3 .count { color: var(--cp-cyan); font-family: var(--cp-display); }
+/* con dấu: lục giác thay cho hình tròn */
+[data-skin="cyberpunk"] .stamp .disc {
+  border-radius: 0;
+  border: 0;
+  clip-path: polygon(25% 3%, 75% 3%, 100% 50%, 75% 97%, 25% 97%, 0 50%);
+  background: linear-gradient(135deg, rgba(5, 217, 232, .16), rgba(123, 47, 247, .18)), #0e1530;
+}
+[data-skin="cyberpunk"] .stamp.done .disc {
+  border: 0;
+  background: linear-gradient(135deg, rgba(252, 238, 10, .35), rgba(255, 42, 109, .25)), #0e1530;
+  box-shadow: none;
+}
+[data-skin="cyberpunk"] .stamp.done .disc .tico { filter: drop-shadow(0 0 8px rgba(252, 238, 10, .7)); }
+[data-skin="cyberpunk"] .stamp .check { border-radius: 0; clip-path: polygon(50% 0, 100% 50%, 50% 100%, 0 50%); border: 0; }
+[data-skin="cyberpunk"] .stamp .pts { color: var(--cp-yellow); }
+[data-skin="cyberpunk"] .stamp:not(.done) .pts { color: var(--cp-dim); }
+
+/* ---------------------------------------------------------------- nút chính: vạch sáng quét qua khi rê chuột */
+[data-skin="cyberpunk"] .btn-primary { position: relative; overflow: hidden; box-shadow: 0 0 14px rgba(252, 238, 10, .3); }
+[data-skin="cyberpunk"] .btn-primary::after {
+  content: "";
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  left: -40%;
+  width: 30%;
+  background: linear-gradient(90deg, transparent, rgba(255, 255, 255, .55), transparent);
+  transform: skewX(-20deg);
+  transition: left .45s;
+}
+[data-skin="cyberpunk"] .btn-primary:hover::after { left: 120%; }
+
+/* thanh tiến độ có vạch chia như đồng hồ năng lượng */
+[data-skin="cyberpunk"] .progress { position: relative; }
+[data-skin="cyberpunk"] .progress::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  background: repeating-linear-gradient(90deg, transparent 0 9px, var(--cp-night) 9px 11px);
+  pointer-events: none;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  [data-skin="cyberpunk"] .hero-figure .num, [data-skin="cyberpunk"] .brand-mark, [data-skin="cyberpunk"] .logbox::after { animation: none; }
+  [data-skin="cyberpunk"] .btn-primary::after { transition: none; }
+}

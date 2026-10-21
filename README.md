@@ -26,7 +26,8 @@ python -m rewards_bot
 1. Trang **Tài khoản**: bấm **Thêm tài khoản** cho mỗi tài khoản Microsoft.
 2. Bấm **Đăng nhập** ở dòng tài khoản đó. Cửa sổ mở 2 tab: đăng nhập ở tab Rewards, rồi kiểm tra tab **bing.com**
    cũng là **cùng tài khoản** (góc phải). Xong thì **đóng cửa sổ** (chỉ làm 1 lần).
-3. Bấm **Kiểm tra**: bot tự chẩn đoán (không search) và báo từng mục ✓/!/✕ kèm cách sửa.
+3. Bấm **Kiểm tra** ở dòng tài khoản: bot tự chẩn đoán (không search). Kết quả từng mục (OK/WARN/FAIL kèm cách sửa)
+   hiện ở trang **Nhật ký**.
 4. Chọn việc bot sẽ làm ở mục "Việc bot sẽ làm khi chạy", rồi bấm **Chạy** (1 tài khoản) hoặc **Chạy tất cả**.
    Ô "Số tài khoản chạy cùng lúc" giới hạn số cửa sổ chạy song song. **Dừng tất cả** để dừng.
 

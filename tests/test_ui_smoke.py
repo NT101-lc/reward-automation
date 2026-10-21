@@ -83,8 +83,7 @@ def test_pages_render_without_errors(server):
         pg.add_init_script(mock)
         pg.goto(server + "/index.html")
         pg.wait_for_function("document.querySelectorAll('.chip').length === 1", timeout=10000)
-        assert pg.locator("#check-panel").is_visible()
-        assert pg.locator("#check-list li.fail").count() == 1
+        assert pg.locator("#check-panel, #btn-check").count() == 0  # kết quả kiểm tra chỉ còn ở Nhật ký
         assert pg.locator("#stamps .stamp").count() >= 5
         assert pg.locator("#streak-panel").is_visible()
         assert pg.locator("#stamp-grid .sdot").count() == 12
@@ -97,12 +96,33 @@ def test_pages_render_without_errors(server):
         assert pg.evaluate("document.documentElement.dataset.bsTheme") == "light"
         pg.click(".theme-switch button[data-theme=dark]")
         assert pg.evaluate("document.documentElement.dataset.bsTheme") == "dark"
+        # icon task là PNG trong vendor/fluent-emoji (không lấy ảnh Bing), tải được và đúng loại
+        icons = pg.evaluate("Array.from(document.querySelectorAll('#task-groups .task .tico'),"
+                            " (i) => [i.getAttribute('src'), i.complete && i.naturalWidth > 0])")
+        assert icons and all(src.startswith("vendor/fluent-emoji/") and ok for src, ok in icons), icons
+        srcs = [src for src, _ in icons]
+        assert srcs[:2] == ["vendor/fluent-emoji/pc.png", "vendor/fluent-emoji/mobile.png"]  # Search PC, Search Mobile
+        assert "vendor/fluent-emoji/camera.png" in srcs  # Visual Search
+        pg.click(".theme-switch button[data-theme=cyberpunk]")  # giao diện Cyberpunk: nền tối + lớp riêng
+        assert pg.evaluate("[document.documentElement.dataset.bsTheme, document.documentElement.dataset.skin]") == ["dark", "cyberpunk"]
+        assert pg.evaluate("getComputedStyle(document.body).fontFamily").lstrip('"').startswith("Bahnschrift")
+        pg.click(".theme-switch button[data-theme=light]")
+        assert pg.evaluate("document.documentElement.dataset.skin") is None
         if SHOT:
             pg.set_viewport_size({"width": 1320, "height": 1100})
             pg.screenshot(path=SHOT, full_page=True)
         for page in ("profiles", "log", "settings", "guide", "dashboard"):
             pg.evaluate(f"go('{page}')")
             pg.wait_for_timeout(200)
+        # nhật ký: mỗi dòng có mức (lỗi / cảnh báo / xong), đếm số lỗi; tên chứa HTML vẫn chỉ là chữ
+        pg.evaluate("go('log')")
+        pg.evaluate("window.onEvents(" + json.dumps([
+            {"type": "log", "name": "acc <img src=x onerror=alert(3)>", "msg": m, "time": "10:00:00"}
+            for m in ("[Kiểm tra] OK – Đăng nhập", "[Kiểm tra] FAIL – Tài khoản trên bing.com", "cảnh báo: chậm",
+                      "lỗi: không mở được profile", "Daily Set chưa xong", "Search PC 3/30")]) + ")")
+        levels = pg.evaluate("Array.from(document.querySelectorAll('#logbox .l'), (l) => l.className.replace('l', '').trim())")
+        assert levels == ["ok", "er", "warn", "er", "", ""], levels
+        assert pg.locator("#log-count").inner_text() == "6 dòng · 2 lỗi"
         # hộp thoại thêm tài khoản: nền đặc, ô cổng chỉ hiện ở chế độ gắn vào Edge, nút nằm trong khung
         pg.evaluate("go('profiles')"); pg.click("#btn-add")
         assert pg.locator("#profile-dialog").is_visible()

@@ -29,7 +29,7 @@ SETTING_SCHEMA = {
     "headless": (bool,), "do_quests": (bool,), "do_pc": (bool,), "do_mobile": (bool,), "do_visual": (bool,),
     "do_browse": (bool,), "bypass_proxy": (bool,),
     "browser_channel": (str, ("msedge", "chrome", "")),
-    "theme": (str, ("system", "light", "dark")),
+    "theme": (str, ("system", "light", "dark", "cyberpunk")),
 }
 SETTING_KEYS = tuple(SETTING_SCHEMA)
 ACTIONS = {"run", "refresh", "login", "check"}
@@ -207,6 +207,8 @@ def _windows_dark() -> bool:
 
 def _window_background(theme: str) -> str:
     """Màu nền cửa sổ khi trang chưa vẽ xong, khớp sáng/tối để không bị nháy."""
+    if theme == "cyberpunk":
+        return "#0b1022"
     dark = theme == "dark" or (theme == "system" and _windows_dark())
     return "#151f2c" if dark else "#f6f8fb"
 

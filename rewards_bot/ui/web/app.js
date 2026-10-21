@@ -7,15 +7,51 @@ const api = () => window.pywebview.api;
 const $ = (s, el = document) => el.querySelector(s);
 const $$ = (s, el = document) => Array.from(el.querySelectorAll(s));
 const esc = (s) => String(s ?? "").replace(/[&<>"']/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]));
-// chỉ hiển thị ảnh https từ bing.com (dữ liệu lấy từ trang web bên ngoài nên không tin tuyệt đối)
-const safeImg = (u) => (/^https:\/\/([a-z0-9-]+\.)*bing\.com\//i.test(u || "") ? u : "");
 const fmt = (n) => (n === null || n === undefined || n === "" ? "—" : Number(n).toLocaleString("en-US"));
 const SERIES = [["pc", "Search PC", "#2a78d6"], ["mobile", "Search Mobile", "#eb6834"], ["offers", "Offers", "#1baf7a"]];
+// bảng màu biểu đồ của giao diện Cyberpunk (cyan / hồng / vàng neon)
+const CYBER_COLORS = { pc: "#05d9e8", mobile: "#ff2a6d", offers: "#fcee0a", balance: "#fcee0a" };
+const isCyber = () => document.documentElement.getAttribute("data-skin") === "cyberpunk";
+const seriesColor = (k) => (isCyber() ? CYBER_COLORS[k] : (SERIES.find((x) => x[0] === k) || [, , "#2a78d6"])[2]);
 const RUN_STATES = ["Đang chạy", "Đang chờ", "Đang làm mới", "Đang đăng nhập", "Đang kiểm tra"];
 const GROUP_ORDER = ["Tìm kiếm", "Daily Set", "Keep earning", "Hoạt động", "Task thêm"];
-const img = (u, cls = "") => (safeImg(u) ? `<img class="${cls}" src="${esc(safeImg(u))}" alt="" loading="lazy">` : "");
+// Icon task: bộ PNG 3D Fluent Emoji (MIT, vendor/fluent-emoji) thay cho ảnh thumbnail lộn xộn của Rewards.
+// Đoán loại task theo tiêu đề, không ra thì theo tên ảnh gốc (id=OMR.food.jpg...), rồi theo nhóm.
+// Luật đầu tiên khớp thắng nên luật cụ thể đặt trước.
+const ICON_RULES = [
+  [/visual|camera|bằng ảnh/, "camera"],
+  [/streak|chuỗi/, "fire"],
+  [/search pc|desktop|máy tính/, "pc"],
+  [/mobile|điện thoại|phone|check-?in/, "mobile"],
+  [/quiz|answer|trả lời|question|trivia|câu đố/, "quiz"],
+  [/poll|vote|bình chọn|this or that/, "poll"],
+  [/food|recipe|burger|cook|pizza|món ăn/, "food"],
+  [/travel|\btrip|flight|reef|island|beach|tokyo|du lịch/, "travel"],
+  [/news|tin tức/, "news"],
+  [/shop|\bdeals?\b|mua sắm/, "shopping"],
+  [/\bgames?\b|xbox/, "game"],
+  [/music|song|âm nhạc/, "music"],
+  [/movie|film|phim/, "movie"],
+  [/weather|thời tiết/, "weather"],
+  [/sport|football|soccer|\bnba\b|\bnfl\b|thể thao/, "sport"],
+  [/\bedge\b|browse|lướt web/, "globe"],
+  [/gift|redeem|quà/, "gift"],
+  [/punch ?card|trophy|level/, "trophy"],
+  [/learn|study|học/, "learn"],
+  [/money|finance|stock|tiền/, "money"],
+  [/pencil|write|viết/, "pencil"],
+  [/autumn|\bfall|leaf/, "leaf"],
+  [/spring|flower|bloom/, "flower"],
+  [/wallpaper|photo|picture/, "picture"],
+  [/bing|search|tìm/, "search"],
+];
+const GROUP_ICONS = { "Tìm kiếm": "search", "Daily Set": "calendar", "Keep earning": "gem", "Hoạt động": "bolt", "Task thêm": "sparkles" };
+const matchIcon = (text) => ICON_RULES.find(([re]) => re.test(String(text || "").toLowerCase()))?.[1];
+const iconName = (t) => matchIcon(t.title) || matchIcon(t.img) || GROUP_ICONS[t.group] || "sparkles";
+const icon = (name, cls = "") => `<img class="tico ${cls}" src="vendor/fluent-emoji/${name}.png" alt="" draggable="false">`;
+const taskIcon = (t, cls = "") => icon(iconName(t), cls);
 
-// ảnh từ Rewards lỗi -> ẩn đi (CSP không cho onerror nội tuyến nên bắt chung ở document)
+// ảnh lỗi -> ẩn đi (CSP không cho onerror nội tuyến nên bắt chung ở document)
 document.addEventListener("error", (e) => { if (e.target.tagName === "IMG") e.target.classList.add("broken"); }, true);
 
 // ===================================================================== khởi động
@@ -60,9 +96,12 @@ const darkQuery = window.matchMedia("(prefers-color-scheme: dark)");
 const isDark = () => document.documentElement.getAttribute("data-bs-theme") === "dark";
 function applyTheme() {
   const mode = S.settings.theme || "system";
-  const dark = mode === "dark" || (mode === "system" && darkQuery.matches);
-  const changed = isDark() !== dark;
+  const cyber = mode === "cyberpunk";  // Cyberpunk luôn là nền tối + lớp giao diện riêng (cyberpunk.css)
+  const dark = cyber || mode === "dark" || (mode === "system" && darkQuery.matches);
+  const changed = isDark() !== dark || isCyber() !== cyber;
   document.documentElement.setAttribute("data-bs-theme", dark ? "dark" : "light");
+  if (cyber) document.documentElement.setAttribute("data-skin", "cyberpunk");
+  else document.documentElement.removeAttribute("data-skin");
   $$(".theme-switch button").forEach((b) => b.classList.toggle("active", b.dataset.theme === mode));
   $$("#theme-choice input").forEach((i) => (i.checked = i.value === mode));
   if (changed && S.page === "dashboard") { Charts.reset(); renderDashboard(); }
@@ -79,7 +118,6 @@ function bindStatic() {
   $$(".theme-switch button").forEach((b) => (b.onclick = () => setTheme(b.dataset.theme)));
   $$("#theme-choice input").forEach((i) => (i.onchange = () => setTheme(i.value)));
   $("#btn-refresh").onclick = () => S.selected && start([S.selected], "refresh");
-  $("#btn-check").onclick = () => S.selected && start([S.selected], "check");
   $("#btn-run-one").onclick = () => S.selected && start([S.selected], "run");
   $("#btn-run-all").onclick = () => start(null, "run");
   $("#btn-stop-all").onclick = async () => { await api().stop(null); toast("Đã gửi lệnh dừng"); };
@@ -169,25 +207,13 @@ function renderDashboard() {
   $("#hero-today").textContent = s.today != null ? "+" + fmt(s.today) : "—";
   $("#hero-month").textContent = fmt(stats.month);
   $("#hero-life").textContent = fmt(stats.lifetime);
-  for (const id of ["#btn-run-one", "#btn-refresh", "#btn-check"]) $(id).disabled = !name || S.running.has(name);
-  renderCheck(s);
+  for (const id of ["#btn-run-one", "#btn-refresh"]) $(id).disabled = !name || S.running.has(name);
   $("#tasks-updated").textContent = s.updated ? "Cập nhật " + s.updated : "";
   renderStamps(s);
   renderStreak(s);
   renderMeters(s);
   renderTasks(s);
   renderCharts(name);
-}
-
-function renderCheck(s) {
-  const panel = $("#check-panel");
-  if (!s.check || !s.check.length) { panel.hidden = true; return; }
-  panel.hidden = false;
-  $("#check-time").textContent = s.check_time ? "Lúc " + s.check_time : "";
-  const sign = { ok: "ti-check", warn: "ti-exclamation-mark", fail: "ti-x" };
-  $("#check-list").innerHTML = s.check.map((c) => `
-    <li class="list-group-item ${esc(c.level)}"><span class="mark"><i class="ti ${sign[c.level] || "ti-question-mark"}"></i></span>
-      <span class="ct">${esc(c.title)}</span><span class="cd">${esc(c.detail)}</span></li>`).join("");
 }
 
 function renderStamps(s) {
@@ -203,7 +229,7 @@ function renderStamps(s) {
   $("#stamp-count").textContent = `${done}/${tasks.length} dấu`;
   box.innerHTML = tasks.map((t) => `
     <div class="stamp ${t.done ? "done" : ""}" title="${esc(t.title)} · ${t.done ? "Đã xong" : "Chưa làm"} · +${t.max} điểm">
-      <div class="stamp-wrap"><div class="disc">${img(t.img) || `<span class="fallback">${esc(initials(t.title))}</span>`}</div>
+      <div class="stamp-wrap"><div class="disc">${taskIcon(t)}</div>
       <span class="check"><i class="ti ti-check"></i></span></div>
       <span class="pts">+${t.max}</span>
     </div>`).join("");
@@ -235,7 +261,7 @@ function renderStreak(s) {
       `<span class="sday ${i < day ? "on" : ""} ${i === todayIdx ? "today" : ""}" title="Ngày ${i + 1}">${i < day ? '<i class="ti ti-check"></i>' : i + 1}</span>`).join("");
     const status = r.today_done ? `<span class="badge bg-green-lt">Hôm nay xong</span>`
       : `<span class="badge bg-yellow-lt">Hôm nay chưa${r.today ? " · " + esc(r.today) : ""}</span>`;
-    return `<div class="streak-row">${img(r.img) || `<span class="ico"></span>`}
+    return `<div class="streak-row">${taskIcon(r)}
       <div class="min-w-0"><div class="t text-truncate">${esc(r.title)}</div>
         <div class="sub">Ngày ${r.day}/${n}${r.next ? ` · ngày tới +${r.next} điểm` : ""}</div></div>
       ${status}
@@ -245,12 +271,10 @@ function renderStreak(s) {
 
 function renderMeters(s) {
   const stats = s.stats || {};
-  const icons = s.icons || {};
-  const rows = [["pc", "Search PC", icons["Tìm kiếm"]], ["mobile", "Search Mobile", icons["Mobile"]]];
-  const findImg = (title) => (s.tasks || []).find((t) => t.title === title)?.img;
-  $("#meters").innerHTML = rows.map(([k, label, ic]) => {
-    const p = stats[k], m = stats[k + "_max"], color = SERIES.find((x) => x[0] === k)[2];
-    return `<div class="meter">${img(findImg(label) || ic) || `<span class="ico"></span>`}
+  const rows = [["pc", "Search PC"], ["mobile", "Search Mobile"]];
+  $("#meters").innerHTML = rows.map(([k, label]) => {
+    const p = stats[k], m = stats[k + "_max"], color = seriesColor(k);
+    return `<div class="meter">${icon(k)}
       <span class="label">${label}</span><span class="val">${m ? `${p}/${m} điểm` : "chưa có dữ liệu"}</span>
       ${bar(m ? (p / m) * 100 : 0, color)}</div>`;
   }).join("");
@@ -262,14 +286,13 @@ function renderTasks(s) {
   if (!tasks.length) { box.innerHTML = `<p class="empty-note">Chưa có dữ liệu task cho tài khoản này.</p>`; return; }
   const groups = {};
   tasks.forEach((t) => (groups[t.group] ||= []).push(t));
-  const icons = s.icons || {};
   box.innerHTML = Object.keys(groups)
     .sort((a, b) => (GROUP_ORDER.indexOf(a) + 99) % 99 - (GROUP_ORDER.indexOf(b) + 99) % 99)
     .map((g) => {
       const items = groups[g], d = items.filter((t) => t.done).length;
-      return `<div class="tgroup"><h3>${img(icons[g] || items[0]?.img)}${esc(g)}<span class="count">${d}/${items.length} xong</span></h3>
-        ${items.map((t) => `<div class="task">
-            ${img(t.img, "thumb") || `<span class="thumb"></span>`}
+      return `<div class="tgroup"><h3>${icon(GROUP_ICONS[g] || "sparkles")}${esc(g)}<span class="count">${d}/${items.length} xong</span></h3>
+        ${items.map((t) => `<div class="task ${t.done ? "done" : ""}">
+            <span class="thumb">${taskIcon(t)}</span>
             <div class="min-w-0"><div class="t" title="${esc(t.title)}">${esc(t.title)}</div>
               <div class="sub">${t.progress}/${t.max} ${esc(t.unit || "điểm")}${t.bot ? ` <span class="botnote">· ${esc(t.bot)}</span>` : ""}</div>
               ${bar(t.max ? (t.progress / t.max) * 100 : 0, t.done ? "var(--tblr-success)" : "")}</div>
@@ -295,17 +318,22 @@ const Charts = {
   },
 };
 function chartBase() {
-  const dark = isDark();
+  const dark = isDark(), cyber = isCyber();
   return {
     chart: { height: 250, toolbar: { show: false }, zoom: { enabled: false }, animations: { enabled: false },
-             fontFamily: "inherit", background: "transparent", foreColor: dark ? "#9aa6b8" : "#6b7385" },
+             fontFamily: cyber ? '"Chakra Petch", Bahnschrift, sans-serif' : "inherit", background: "transparent",
+             foreColor: cyber ? "#8b96c4" : dark ? "#9aa6b8" : "#6b7385" },
     theme: { mode: dark ? "dark" : "light" },
-    grid: { borderColor: dark ? "rgba(255,255,255,.07)" : "#eef0f5", strokeDashArray: 3, padding: { left: 6, right: 6 } },
+    grid: { borderColor: cyber ? "rgba(5,217,232,.14)" : dark ? "rgba(255,255,255,.07)" : "#eef0f5", strokeDashArray: cyber ? 2 : 3,
+            xaxis: { lines: { show: false } }, padding: { left: 6, right: 6 } },
     dataLabels: { enabled: false },
     tooltip: { theme: dark ? "dark" : "light" },
-    legend: { position: "top", horizontalAlign: "right", fontSize: "12px", markers: { size: 5 } },
+    legend: { position: "top", horizontalAlign: "right", fontSize: "12px",
+              markers: cyber ? { size: 6, shape: "square" } : { size: 5 }, itemMargin: { horizontal: 8 } },
   };
 }
+// cột rộng khoảng 28px dù có 2 hay 14 ngày (để % cố định thì ít ngày ra cột to như khối gạch)
+const barWidth = (id, n) => `${Math.max(12, Math.min(60, Math.round((28 * n * 100) / Math.max(200, $("#" + id).clientWidth - 60))))}%`;
 function emptyChart(id, msg) {
   if (Charts.inst[id]) { Charts.inst[id].destroy(); delete Charts.inst[id]; }
   Charts.keys[id] = "empty";
@@ -315,32 +343,59 @@ function renderCharts(name) {
   const hist = S.history[name] || {};
   const days = Object.keys(hist).sort();
   const lab = (d) => `${d.slice(8, 10)}/${d.slice(5, 7)}`;
-  const theme = isDark() ? "d" : "l";
+  const theme = isCyber() ? "c" : isDark() ? "d" : "l";
   const d14 = days.slice(-14);
   if (!d14.length) emptyChart("chart-daily", "Chưa có lịch sử. Mỗi lần chạy hoặc làm mới sẽ ghi lại điểm của ngày đó.");
-  else Charts.draw("chart-daily", theme + JSON.stringify(d14.map((d) => [d, hist[d].pc, hist[d].mobile, hist[d].offers])), () => ({
-    ...chartBase(),
-    chart: { ...chartBase().chart, type: "bar", stacked: true },
-    colors: SERIES.map((x) => x[2]),
-    series: SERIES.map(([k, l]) => ({ name: l, data: d14.map((d) => hist[d][k] || 0) })),
-    xaxis: { categories: d14.map(lab), axisBorder: { show: false }, axisTicks: { show: false } },
-    yaxis: { labels: { formatter: (v) => fmt(Math.round(v)) } },
-    plotOptions: { bar: { columnWidth: "45%", borderRadius: 4, borderRadiusApplication: "end", borderRadiusWhenStacked: "last" } },
-  }));
+  const cyber = isCyber();
+  const glow = (color) => ({ enabled: true, top: 0, left: 0, blur: 7, opacity: 0.55, color });
+  if (!d14.length) emptyChart("chart-daily", "Chưa có lịch sử. Mỗi lần chạy hoặc làm mới sẽ ghi lại điểm của ngày đó.");
+  else Charts.draw("chart-daily", theme + JSON.stringify(d14.map((d) => [d, hist[d].pc, hist[d].mobile, hist[d].offers])), () => {
+    const colors = SERIES.map(([k]) => seriesColor(k));
+    return {
+      ...chartBase(),
+      chart: { ...chartBase().chart, type: "bar", stacked: true, ...(cyber && { dropShadow: glow(colors) }) },
+      colors,
+      series: SERIES.map(([k, l]) => ({ name: l, data: d14.map((d) => hist[d][k] || 0) })),
+      xaxis: { categories: d14.map(lab), axisBorder: { show: false }, axisTicks: { show: false } },
+      yaxis: { labels: { formatter: (v) => fmt(Math.round(v)) } },
+      plotOptions: { bar: { columnWidth: barWidth("chart-daily", d14.length),
+                            ...(cyber ? { borderRadius: 0 } : { borderRadius: 4, borderRadiusApplication: "end", borderRadiusWhenStacked: "last" }) } },
+      // Cyberpunk: khối đặc mờ dần xuống dưới + viền neon cùng màu, khe tối giữa các phần chồng nhau
+      ...(cyber && {
+        fill: { type: "gradient", gradient: { type: "vertical", shadeIntensity: 0, opacityFrom: 0.95, opacityTo: 0.45 } },
+        stroke: { show: true, width: 2, colors: ["#121a33"] },
+      }),
+    };
+  });
   const d30 = days.slice(-30).filter((d) => hist[d].available != null);
   if (!d30.length) emptyChart("chart-balance", "Chưa có lịch sử điểm.");
-  else Charts.draw("chart-balance", theme + JSON.stringify(d30.map((d) => [d, hist[d].available])), () => ({
-    ...chartBase(),
-    chart: { ...chartBase().chart, type: "area" },
-    colors: ["#2a78d6"],
-    series: [{ name: "Điểm", data: d30.map((d) => hist[d].available) }],
-    stroke: { width: 2.5, curve: "smooth" },
-    fill: { type: "gradient", gradient: { opacityFrom: 0.35, opacityTo: 0.02 } },
-    markers: { size: d30.length < 3 ? 5 : 0, hover: { size: 5 } },
-    xaxis: { categories: d30.map(lab), axisBorder: { show: false }, axisTicks: { show: false } },
-    yaxis: { labels: { formatter: (v) => fmt(Math.round(v)) } },
-    legend: { show: false },
-  }));
+  else Charts.draw("chart-balance", theme + JSON.stringify(d30.map((d) => [d, hist[d].available])), () => {
+    const color = seriesColor("balance"), last = d30.length - 1;
+    return {
+      ...chartBase(),
+      chart: { ...chartBase().chart, type: "area", ...(cyber && { dropShadow: glow(color) }) },
+      colors: [color],
+      series: [{ name: "Điểm", data: d30.map((d) => hist[d].available) }],
+      stroke: { width: cyber ? 2 : 2.5, curve: cyber ? "straight" : "smooth" },
+      fill: cyber ? { type: "gradient", gradient: { shadeIntensity: 0, gradientToColors: ["#ff2a6d"], opacityFrom: 0.4, opacityTo: 0.02 } }
+                  : { type: "gradient", gradient: { opacityFrom: 0.35, opacityTo: 0.02 } },
+      markers: cyber
+        ? { size: d30.length < 8 ? 4 : 0, shape: "square", strokeWidth: 0, hover: { size: 6 },
+            discrete: [{ seriesIndex: 0, dataPointIndex: last, size: 6, fillColor: "#ff2a6d", strokeColor: color, shape: "square" }] }
+        : { size: d30.length < 3 ? 5 : 0, hover: { size: 5 } },
+      grid: { ...chartBase().grid, padding: { left: 6, right: 14 } },
+      // nhãn ngày nằm ngang, tối đa ~6 nhãn (để mặc định thì 14-30 ngày bị xoay chéo, khó đọc)
+      xaxis: { categories: d30.map(lab), axisBorder: { show: false }, axisTicks: { show: false },
+               tickAmount: Math.min(6, d30.length - 1), labels: { rotate: 0, hideOverlappingLabels: true },
+               ...(cyber && { crosshairs: { stroke: { color: "#05d9e8", width: 1, dashArray: 3 } } }) },
+      yaxis: { labels: { formatter: (v) => fmt(Math.round(v)) } },
+      legend: { show: false },
+      // Cyberpunk: nhãn HUD số dư hiện tại trên đường ngang nét đứt
+      ...(cyber && { annotations: { yaxis: [{ y: hist[d30[last]].available, borderColor: "rgba(252,238,10,.5)", strokeDashArray: 4,
+        label: { text: fmt(hist[d30[last]].available), position: "left", textAnchor: "start", offsetX: 4, borderWidth: 0,
+                 style: { background: "#fcee0a", color: "#0b1022", fontSize: "11px", fontWeight: 700, padding: { left: 6, right: 6, top: 2, bottom: 2 } } } }] } }),
+    };
+  });
 }
 window.addEventListener("resize", () => { clearTimeout(window._rz); window._rz = setTimeout(() => S.page === "dashboard" && (Charts.reset(), renderDashboard()), 200); });
 
@@ -372,7 +427,9 @@ function renderProfiles() {
       const act = b.dataset.act;
       if (act === "run") start([name], "run");
       else if (act === "login") start([name], "login");
-      else if (act === "check") { S.selected = name; start([name], "check"); }
+      else if (act === "check") {  // kết quả kiểm tra ghi vào nhật ký ([Kiểm tra] OK/WARN/FAIL) nên mở luôn trang đó
+        S.selected = name; $("#log-filter").value = ""; go("log"); start([name], "check");
+      }
       else if (act === "stop") { await api().stop([name]); toast("Đang dừng " + name); }
       else if (act === "edit") openProfileDialog(S.profiles.find((p) => p.name === name));
       else if (act === "del" && confirm(`Xóa tài khoản "${name}" khỏi app?\nPhiên đăng nhập trong data/profiles vẫn được giữ.`)) {
@@ -387,18 +444,16 @@ function renderProfiles() {
 }
 
 function renderToggles() {
-  const ic = st(S.selected).icons || {};
-  const any = (k) => Object.values(S.pstate).map((s) => (s.icons || {})[k]).find(Boolean);
   const items = [
-    ["do_quests", "Daily Set, Keep earning", "Bấm từng thẻ task, làm quiz và poll", ic["Daily Set"] || any("Daily Set"), "ti-cards"],
-    ["do_pc", "Search PC", "Tìm đến khi đủ điểm search máy tính", ic["Tìm kiếm"] || any("Tìm kiếm"), "ti-device-desktop"],
-    ["do_mobile", "Search Mobile", "Giả lập điện thoại, tìm đến khi đủ điểm", ic["Mobile"] || any("Mobile"), "ti-device-mobile"],
-    ["do_visual", "Visual Search", "Tìm bằng 1 ảnh qua nút camera của Bing (mỗi ngày 1 lượt)", ic["Visual Search"] || any("Visual Search"), "ti-camera"],
-    ["do_browse", "Browse", `Lướt web ${S.settings.browse_minutes} phút. Không làm lên Edge – Minutes (mục đó phải tự dùng Edge)`, "", "ti-world"],
-    ["headless", "Chạy ẩn", "Không hiện cửa sổ trình duyệt", "", "ti-eye-off"],
+    ["do_quests", "Daily Set, Keep earning", "Bấm từng thẻ task, làm quiz và poll", "calendar"],
+    ["do_pc", "Search PC", "Tìm đến khi đủ điểm search máy tính", "pc"],
+    ["do_mobile", "Search Mobile", "Giả lập điện thoại, tìm đến khi đủ điểm", "mobile"],
+    ["do_visual", "Visual Search", "Tìm bằng 1 ảnh qua nút camera của Bing (mỗi ngày 1 lượt)", "camera"],
+    ["do_browse", "Browse", `Lướt web ${S.settings.browse_minutes} phút. Không làm lên Edge – Minutes (mục đó phải tự dùng Edge)`, "globe"],
+    ["headless", "Chạy ẩn", "Không hiện cửa sổ trình duyệt", "robot"],
   ];
-  $("#task-toggles").innerHTML = items.map(([k, t, d, im, ti]) => `
-    <label class="list-group-item toggle-item">${img(im) || `<span class="ico"><i class="ti ${ti}"></i></span>`}
+  $("#task-toggles").innerHTML = items.map(([k, t, d, ic]) => `
+    <label class="list-group-item toggle-item"><span class="ico">${icon(ic)}</span>
       <div><div class="tt">${t}</div><div class="td">${d}</div></div>
       <span class="form-check form-switch"><input class="form-check-input" type="checkbox" data-key="${k}" ${S.settings[k] ? "checked" : ""}></span></label>`).join("");
   $$("#task-toggles input").forEach((i) => (i.onchange = () => saveSettings({ [i.dataset.key]: i.checked })));
@@ -446,18 +501,32 @@ function renderLog() {
   const sel = $("#log-filter"), cur = sel.value || "";
   sel.innerHTML = `<option value="">Tất cả tài khoản</option>` + S.profiles.map((p) => `<option ${p.name === cur ? "selected" : ""}>${esc(p.name)}</option>`).join("");
   const box = $("#logbox"); box.innerHTML = "";
-  S.logs.filter((l) => !cur || l.name === cur).slice(-1500).forEach(appendLog);
-  if (!S.logs.length) box.innerHTML = `<div class="l tm">Chưa có nhật ký. Khi bot chạy, từng bước sẽ hiện ở đây.</div>`;
+  S.logs.filter((l) => !cur || l.name === cur).slice(-1500).forEach((l) => appendLog(l, false));
+  if (!S.logs.length) box.innerHTML = `<div class="l empty"><span class="msg">Chưa có nhật ký. Khi bot chạy, từng bước sẽ hiện ở đây.</span></div>`;
+  logCount();
 }
-function appendLog(e) {
+// mức của 1 dòng: lỗi / cảnh báo / xong (dòng [Kiểm tra] ghi OK / WARN / FAIL)
+const logLevel = (m) => (/^\s*lỗi|\bFAIL\b|traceback|exception/i.test(m) ? "er"
+  : /^\s*cảnh báo|\bWARN\b/i.test(m) ? "warn"
+  : /\bOK\b|(?<!chưa )xong|hoàn tất|thành công/i.test(m) ? "ok" : "");
+// mỗi tài khoản 1 màu nhãn cố định (băm tên)
+const nameTone = (n) => [...String(n)].reduce((h, c) => (h * 31 + c.charCodeAt(0)) >>> 0, 7) % 5;
+function logCount() {
+  const lines = $$("#logbox .l:not(.empty)");
+  const err = lines.filter((l) => l.classList.contains("er")).length;
+  $("#log-count").innerHTML = `${fmt(lines.length)} dòng${err ? ` · <b>${fmt(err)} lỗi</b>` : ""}`;
+}
+function appendLog(e, count = true) {
   const cur = logFilter();
   if (cur && e.name !== cur) return;
   const box = $("#logbox"), atBottom = box.scrollHeight - box.scrollTop - box.clientHeight < 40;
+  box.querySelector(".l.empty")?.remove();
   const d = document.createElement("div");
-  d.className = "l";
-  d.innerHTML = `<span class="tm">${esc(e.time)}</span> <span class="nm">${esc(e.name)}</span> <span class="${/^\s*(lỗi|cảnh báo)/i.test(e.msg) ? "er" : ""}">${esc(e.msg)}</span>`;
+  d.className = `l ${logLevel(e.msg)}`;
+  d.innerHTML = `<span class="tm">${esc(e.time)}</span><span class="nm tone-${nameTone(e.name)}">${esc(e.name)}</span><span class="msg">${esc(e.msg)}</span>`;
   box.appendChild(d);
   if (atBottom) box.scrollTop = box.scrollHeight;
+  if (count) logCount();
 }
 async function copyLog() {
   const cur = logFilter();
