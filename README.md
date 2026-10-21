@@ -43,6 +43,10 @@ python -m rewards_bot
 ### Bot tự bảo vệ khi chạy
 - Trước khi search, đối chiếu điểm trên bing.com với Rewards; **sai tài khoản thì không search** (để không cộng nhầm).
 - Cứ 3 lượt search đọc lại điểm; **6 lượt liên tiếp không được cộng thì dừng** loại search đó và ghi lý do.
+- **Search Mobile** chạy trong một tab giả lập điện thoại Android (UA và client hints khớp đúng phiên bản Edge đang
+  chạy). Trước khi sang tab mobile, bot xóa cookie phiên search của Bing (`_Rwho`, `_SS`, `_EDGE_S`; không đụng cookie
+  đăng nhập): Bing đánh dấu cả phiên là desktop (`_Rwho=u=d`) sau lượt search PC / lần mở bing.com đầu tiên, nếu
+  không xóa thì search Mobile bị tính là PC và không được điểm.
 - Thẻ Daily Set / Keep earning được bấm đúng vị trí (kể cả 2 thẻ trùng tên); thẻ nào làm xong mà chưa được ghi
   nhận sẽ được liệt kê trong nhật ký.
 - Nhật ký lưu ở `data/logs/<ngày>.log` (giữ 14 ngày) – gửi file này khi cần báo lỗi.
@@ -57,8 +61,17 @@ python -m rewards_bot
 - Số lượt và số phút chỉnh trong trang Cài đặt.
 
 ### Câu search
-Bot tự sinh câu search từ 15 lĩnh vực (khoảng 2.400 câu): không trùng nhau, hai câu liền nhau không cùng lĩnh vực,
-các tài khoản không tìm cùng một câu, và câu đã dùng không lặp lại trong N ngày (lưu ở `data/search_history.json`).
+Bot tự sinh câu search từ 21 lĩnh vực (khoảng 2.600 câu tiếng Anh, trung bình ~8 từ, câu nào cũng có nghĩa), ví dụ:
+*how to set up nginx as a reverse proxy with ssl using lets encrypt*, *league of legends wave management guide for beginners*.
+
+- **IT** chia 6 mảng: Server & Mạng (nginx, load balancing, BGP…), DevOps & Cloud (docker, kubernetes, kafka…),
+  IoT & Phần cứng (ESP32, MQTT, Zigbee…), Bảo mật, Lập trình (ngôn ngữ, cấu trúc dữ liệu & giải thuật), Dữ liệu & AI.
+- **Game**: Roblox, League of Legends/TFT, Fortnite, Minecraft, Valorant, CS2, Dota 2, Genshin, Liên Quân…
+- **Học thuật**: Toán, Vật lý & Vũ trụ, Hóa & Sinh, Kinh tế & Tài chính; cùng các mảng đời sống (sức khỏe, ẩm thực,
+  du lịch, lịch sử, thể thao, giải trí, ngoại ngữ, nhà cửa, xe, thiên nhiên).
+
+Không trùng nhau, hai câu liền nhau không cùng lĩnh vực, các tài khoản không tìm cùng một câu, và câu đã dùng không
+lặp lại trong N ngày (lưu ở `data/search_history.json`). Muốn thêm câu: sửa `rewards_bot/search/catalog.py`.
 
 ### Hai cách chạy nhiều cửa sổ
 - **Cửa sổ riêng** (khuyên dùng): mỗi tài khoản có thư mục `data/profiles/<tên>` riêng, mỗi tài khoản mở 1 cửa sổ.
@@ -109,12 +122,13 @@ rewards-bot/
 │   │   ├── security.py     # khóa quyền data/, proxy, cổng debug
 │   │   ├── instance.py     # chỉ 1 cửa sổ app chạy cùng lúc
 │   │   └── config.py       # cài đặt, tài khoản, đọc/ghi file an toàn
-│   ├── search/             # sinh câu search không trùng
+│   ├── search/             # catalog.py (danh mục câu search) + bank.py (chia câu không trùng)
 │   └── ui/                 # webapp.py (pywebview) + web/ (index.html, style.css, app.js)
 ├── tests/                  # pytest: logic, dữ liệu, giao diện
 ├── data/                   # tự tạo khi chạy (không commit)
 ├── run.bat                 # mở app
 ├── check.bat               # chạy test
+├── CLAUDE.md               # ghi chú cho Claude Code (lệnh, cấu trúc, các lỗi đã tìm ra)
 ├── requirements.txt
 └── requirements-dev.txt
 ```
