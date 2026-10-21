@@ -10,6 +10,16 @@ def test_catalog_has_no_duplicates():
     assert len(CATEGORIES) >= 10
 
 
+def test_catalog_queries_are_long_and_cover_games_and_it():
+    qs = all_queries()
+    assert len(qs) >= 2000
+    assert all(len(q.split()) >= 5 for _, q in qs)
+    assert all("{" not in q for _, q in qs)
+    text = " ".join(q.lower() for _, q in qs)
+    for kw in ("roblox", "league of legends", "fortnite", "nginx", "load balancing", "mqtt", "kubernetes"):
+        assert kw in text
+
+
 def test_table_unique_and_varied(tmp_path):
     rows = QueryBank(tmp_path / "h.json").generate(60)
     assert len({r["query"] for r in rows}) == 60
