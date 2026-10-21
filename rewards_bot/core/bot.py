@@ -431,19 +431,11 @@ class RewardsBot:
                     if last_progress is None or c["progress"] > last_progress:
                         last_progress, last_gain_at = c["progress"], i
                     elif i - last_gain_at >= self.STALL_AFTER:
-                        if int(self.s.get("slow_minutes", 15)) > 0:
-                            self._slow_searches(page, kind, label, check_page, c["progress"])
-                        else:
-                            self._stall(kind, label, f"sau {i - last_gain_at} lượt liên tiếp", c)
+                        self._stall(kind, label, f"sau {i - last_gain_at} lượt liên tiếp", c)
                         return
             self.status(progress=f"{label} {i + 1}/{count}")
             self._search_once(page, f"{label} {i + 1}/{count}")
             self.sleep(self.s["search_delay_min"], self.s["search_delay_max"])
-        # hết lượt mà chưa đủ điểm và mấy lượt cuối không được cộng -> có thể bị giới hạn tốc độ
-        if int(self.s.get("slow_minutes", 15)) > 0 and count - last_gain_at >= min(self.STALL_AFTER, count):
-            c = self._recheck(check_page, kind)
-            if c and c["progress"] < c["max"] and (last_progress is None or c["progress"] <= last_progress):
-                self._slow_searches(page, kind, label, check_page, c["progress"])
 
     def _search_once(self, page: Page, tag: str) -> None:
         q = self.bank.take(self.name)
@@ -461,35 +453,13 @@ class RewardsBot:
                  "không tính search cho tài khoản này.")
         self.stalled.add(kind)
 
-    SLOW_GIVE_UP = 3  # chế độ chậm: bao nhiêu lượt liên tiếp không được cộng thì bỏ
+    @staticmethod
+    def new_bing_session(ctx: BrowserContext) -> None:
+        """Xóa cookie phiên search của Bing (không đụng cookie đăng nhập).
 
-    def _slow_searches(self, page: Page, kind: str, label: str, check_page: Page, progress: int) -> None:
-        """Search cách quãng dài cho tài khoản bị Microsoft giới hạn tốc độ (chỉ tính ~1 lượt mỗi vài phút)."""
-        minutes = int(self.s.get("slow_minutes", 15))
-        self.log(f"cảnh báo: {label} không được cộng điểm khi search liên tục, có thể Microsoft đang giới hạn "
-                 f"tốc độ tài khoản này. Chuyển sang chế độ chậm: mỗi lượt cách khoảng {minutes} phút")
-        misses = n = 0
-        while True:
-            self.status(progress=f"{label}: chế độ chậm, chờ {minutes} phút")
-            self.sleep(minutes * 60 * 0.9, minutes * 60 * 1.1)
-            n += 1
-            self.status(progress=f"{label}: chế độ chậm, lượt {n}")
-            self._search_once(page, f"{label} chậm {n}")
-            self.sleep(30, 45)  # chờ Rewards ghi nhận
-            c = self._recheck(check_page, kind)
-            if not c:
-                continue
-            self.log(f"  {label}: {c['progress']}/{c['max']} điểm")
-            if c["progress"] >= c["max"]:
-                self.log(f"{label}: đã đủ điểm")
-                return
-            if c["progress"] > progress:
-                progress, misses = c["progress"], 0
-                continue
-            misses += 1
-            if misses >= self.SLOW_GIVE_UP:
-                self._stall(kind, label, f"kể cả khi search cách {minutes} phút ({misses} lượt)", c)
-                return
+        Bing gắn loại thiết bị theo phiên: search Mobile trong phiên đã search PC bị tính là PC (+0 khi PC đã đủ).
+        """
+        ctx.clear_cookies(name=re.compile(r"^(_SS|_EDGE_S|_Rwho)$"), domain=re.compile(r"bing\.com$"))
 
     def do_image_searches(self, page: Page, count: int) -> None:
         row = activity(self.state, "visual search")
@@ -696,10 +666,14 @@ class RewardsBot:
                 if self.s.get("do_pc", True):
                     self.do_searches(page, "pc", "Search PC")
                 if self.s.get("do_mobile", True):
+                    self.new_bing_session(ctx)
                     mpage = ctx.new_page()
                     own.append(mpage)
                     self._emulate_mobile(ctx, mpage)
                     self.do_searches(mpage, "mobile", "Search Mobile", check_page=page)
+                    mpage.close()
+                    own.remove(mpage)
+                    self.new_bing_session(ctx)  # search ảnh / browse sau đó lại là PC
                 if self.s.get("do_pc", True) or self.s.get("do_mobile", True):
                     self.read_state(page)
                 if self.s.get("do_images", True):

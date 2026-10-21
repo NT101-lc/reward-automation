@@ -443,7 +443,6 @@ const SETTING_FIELDS = [
   ["search_delay_min", "Nghỉ ít nhất giữa 2 lượt search (giây)"],
   ["search_delay_max", "Nghỉ nhiều nhất giữa 2 lượt search (giây)"],
   ["extra_searches", "Số lượt search thêm cho chắc đủ điểm"],
-  ["slow_minutes", "Không được cộng điểm thì search chậm, mỗi lượt cách (phút, 0 = tắt)"],
   ["image_searches", "Số lượt search ảnh"],
   ["browse_minutes", "Thời gian browse (phút)"],
   ["history_days", "Không lặp lại câu search đã dùng trong (ngày)"],
