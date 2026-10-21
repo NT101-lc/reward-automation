@@ -172,6 +172,9 @@ pre { background: var(--tblr-bg-surface-secondary); color: var(--tblr-body-color
 .fix-list dt:first-child { margin-top: 0; }
 .fix-list dd { color: var(--tblr-secondary); margin: 2px 0 0; }
 
+#theme-choice { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
+#theme-choice .form-selectgroup-item { margin: 0; }
+
 /* ảnh từ Rewards không tải được -> ô trống thay vì biểu tượng ảnh vỡ */
 img.broken { visibility: hidden; }
 

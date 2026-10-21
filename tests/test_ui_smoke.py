@@ -97,6 +97,11 @@ def test_pages_render_without_errors(server):
         assert pg.evaluate("document.documentElement.dataset.bsTheme") == "light"
         pg.click(".theme-switch button[data-theme=dark]")
         assert pg.evaluate("document.documentElement.dataset.bsTheme") == "dark"
+        pg.click(".theme-switch button[data-theme=cyberpunk]")  # giao diện Cyberpunk: nền tối + lớp riêng
+        assert pg.evaluate("[document.documentElement.dataset.bsTheme, document.documentElement.dataset.skin]") == ["dark", "cyberpunk"]
+        assert pg.evaluate("getComputedStyle(document.body).fontFamily").startswith('"Bahnschrift"')
+        pg.click(".theme-switch button[data-theme=light]")
+        assert pg.evaluate("document.documentElement.dataset.skin") is None
         if SHOT:
             pg.set_viewport_size({"width": 1320, "height": 1100})
             pg.screenshot(path=SHOT, full_page=True)

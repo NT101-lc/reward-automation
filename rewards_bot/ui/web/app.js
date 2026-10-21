@@ -11,6 +11,10 @@ const esc = (s) => String(s ?? "").replace(/[&<>"']/g, (c) => ({ "&": "&amp;", "
 const safeImg = (u) => (/^https:\/\/([a-z0-9-]+\.)*bing\.com\//i.test(u || "") ? u : "");
 const fmt = (n) => (n === null || n === undefined || n === "" ? "—" : Number(n).toLocaleString("en-US"));
 const SERIES = [["pc", "Search PC", "#2a78d6"], ["mobile", "Search Mobile", "#eb6834"], ["offers", "Offers", "#1baf7a"]];
+// bảng màu biểu đồ của giao diện Cyberpunk (cyan / hồng / vàng neon)
+const CYBER_COLORS = { pc: "#05d9e8", mobile: "#ff2a6d", offers: "#fcee0a", balance: "#fcee0a" };
+const isCyber = () => document.documentElement.getAttribute("data-skin") === "cyberpunk";
+const seriesColor = (k) => (isCyber() ? CYBER_COLORS[k] : (SERIES.find((x) => x[0] === k) || [, , "#2a78d6"])[2]);
 const RUN_STATES = ["Đang chạy", "Đang chờ", "Đang làm mới", "Đang đăng nhập", "Đang kiểm tra"];
 const GROUP_ORDER = ["Tìm kiếm", "Daily Set", "Keep earning", "Hoạt động", "Task thêm"];
 const img = (u, cls = "") => (safeImg(u) ? `<img class="${cls}" src="${esc(safeImg(u))}" alt="" loading="lazy">` : "");
@@ -60,9 +64,12 @@ const darkQuery = window.matchMedia("(prefers-color-scheme: dark)");
 const isDark = () => document.documentElement.getAttribute("data-bs-theme") === "dark";
 function applyTheme() {
   const mode = S.settings.theme || "system";
-  const dark = mode === "dark" || (mode === "system" && darkQuery.matches);
-  const changed = isDark() !== dark;
+  const cyber = mode === "cyberpunk";  // Cyberpunk luôn là nền tối + lớp giao diện riêng (cyberpunk.css)
+  const dark = cyber || mode === "dark" || (mode === "system" && darkQuery.matches);
+  const changed = isDark() !== dark || isCyber() !== cyber;
   document.documentElement.setAttribute("data-bs-theme", dark ? "dark" : "light");
+  if (cyber) document.documentElement.setAttribute("data-skin", "cyberpunk");
+  else document.documentElement.removeAttribute("data-skin");
   $$(".theme-switch button").forEach((b) => b.classList.toggle("active", b.dataset.theme === mode));
   $$("#theme-choice input").forEach((i) => (i.checked = i.value === mode));
   if (changed && S.page === "dashboard") { Charts.reset(); renderDashboard(); }
@@ -249,7 +256,7 @@ function renderMeters(s) {
   const rows = [["pc", "Search PC", icons["Tìm kiếm"]], ["mobile", "Search Mobile", icons["Mobile"]]];
   const findImg = (title) => (s.tasks || []).find((t) => t.title === title)?.img;
   $("#meters").innerHTML = rows.map(([k, label, ic]) => {
-    const p = stats[k], m = stats[k + "_max"], color = SERIES.find((x) => x[0] === k)[2];
+    const p = stats[k], m = stats[k + "_max"], color = seriesColor(k);
     return `<div class="meter">${img(findImg(label) || ic) || `<span class="ico"></span>`}
       <span class="label">${label}</span><span class="val">${m ? `${p}/${m} điểm` : "chưa có dữ liệu"}</span>
       ${bar(m ? (p / m) * 100 : 0, color)}</div>`;
@@ -298,9 +305,9 @@ function chartBase() {
   const dark = isDark();
   return {
     chart: { height: 250, toolbar: { show: false }, zoom: { enabled: false }, animations: { enabled: false },
-             fontFamily: "inherit", background: "transparent", foreColor: dark ? "#9aa6b8" : "#6b7385" },
+             fontFamily: "inherit", background: "transparent", foreColor: isCyber() ? "#8b96c4" : dark ? "#9aa6b8" : "#6b7385" },
     theme: { mode: dark ? "dark" : "light" },
-    grid: { borderColor: dark ? "rgba(255,255,255,.07)" : "#eef0f5", strokeDashArray: 3, padding: { left: 6, right: 6 } },
+    grid: { borderColor: isCyber() ? "rgba(5,217,232,.12)" : dark ? "rgba(255,255,255,.07)" : "#eef0f5", strokeDashArray: 3, padding: { left: 6, right: 6 } },
     dataLabels: { enabled: false },
     tooltip: { theme: dark ? "dark" : "light" },
     legend: { position: "top", horizontalAlign: "right", fontSize: "12px", markers: { size: 5 } },
@@ -315,13 +322,13 @@ function renderCharts(name) {
   const hist = S.history[name] || {};
   const days = Object.keys(hist).sort();
   const lab = (d) => `${d.slice(8, 10)}/${d.slice(5, 7)}`;
-  const theme = isDark() ? "d" : "l";
+  const theme = isCyber() ? "c" : isDark() ? "d" : "l";
   const d14 = days.slice(-14);
   if (!d14.length) emptyChart("chart-daily", "Chưa có lịch sử. Mỗi lần chạy hoặc làm mới sẽ ghi lại điểm của ngày đó.");
   else Charts.draw("chart-daily", theme + JSON.stringify(d14.map((d) => [d, hist[d].pc, hist[d].mobile, hist[d].offers])), () => ({
     ...chartBase(),
     chart: { ...chartBase().chart, type: "bar", stacked: true },
-    colors: SERIES.map((x) => x[2]),
+    colors: SERIES.map(([k]) => seriesColor(k)),
     series: SERIES.map(([k, l]) => ({ name: l, data: d14.map((d) => hist[d][k] || 0) })),
     xaxis: { categories: d14.map(lab), axisBorder: { show: false }, axisTicks: { show: false } },
     yaxis: { labels: { formatter: (v) => fmt(Math.round(v)) } },
@@ -332,7 +339,7 @@ function renderCharts(name) {
   else Charts.draw("chart-balance", theme + JSON.stringify(d30.map((d) => [d, hist[d].available])), () => ({
     ...chartBase(),
     chart: { ...chartBase().chart, type: "area" },
-    colors: ["#2a78d6"],
+    colors: [seriesColor("balance")],
     series: [{ name: "Điểm", data: d30.map((d) => hist[d].available) }],
     stroke: { width: 2.5, curve: "smooth" },
     fill: { type: "gradient", gradient: { opacityFrom: 0.35, opacityTo: 0.02 } },
