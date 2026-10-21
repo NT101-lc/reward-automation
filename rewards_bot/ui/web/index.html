@@ -54,8 +54,6 @@
         <div class="container-xl d-flex flex-wrap gap-3 align-items-center">
           <div class="chips" id="profile-chips"></div>
           <div class="ms-auto btn-list">
-            <button class="btn" id="btn-check" title="Tự chẩn đoán đăng nhập, tài khoản bing.com, điểm search. Không search.">
-              <i class="ti ti-stethoscope"></i>Kiểm tra</button>
             <button class="btn" id="btn-refresh" title="Chỉ đọc điểm, không làm task"><i class="ti ti-refresh"></i>Làm mới</button>
             <button class="btn btn-primary" id="btn-run-one"><i class="ti ti-player-play"></i>Chạy tài khoản này</button>
           </div>
@@ -106,13 +104,6 @@
             </div>
           </div>
 
-          <div class="col-12" id="check-panel" hidden>
-            <div class="card">
-              <div class="card-header"><h3 class="card-title"><i class="ti ti-stethoscope me-2"></i>Kết quả kiểm tra</h3>
-                <div class="card-actions text-secondary" id="check-time"></div></div>
-              <ul class="list-group list-group-flush checks" id="check-list"></ul>
-            </div>
-          </div>
 
           <div class="col-lg-7">
             <div class="card">
@@ -185,7 +176,11 @@
         </div>
       </div></div>
       <div class="page-body"><div class="container-xl">
-        <div class="card"><div class="logbox" id="logbox"></div></div>
+        <div class="card logcard">
+          <div class="log-head"><span class="log-dots"><i></i><i></i><i></i></span>
+            <span class="log-title">rewards-bot://nhat-ky</span><span class="log-count" id="log-count"></span></div>
+          <div class="logbox" id="logbox"></div>
+        </div>
       </div></div>
     </section>
 
@@ -250,7 +245,8 @@
                       <li><b>Thêm tài khoản</b>: trang <em>Tài khoản</em> → <em>Thêm tài khoản</em>. Mỗi tài khoản Microsoft một dòng.</li>
                       <li><b>Đăng nhập</b> (chỉ 1 lần): bấm <em>Đăng nhập</em> ở dòng đó. Cửa sổ mở 2 tab: đăng nhập ở tab Rewards,
                         rồi xem tab <b>bing.com</b> góc phải phải là <b>cùng tài khoản</b>. Xong thì đóng cửa sổ.</li>
-                      <li><b>Kiểm tra</b>: bot tự chẩn đoán (không search) và báo từng mục ✓ / ! / ✕ kèm cách sửa.</li>
+                      <li><b>Kiểm tra</b>: bấm <em>Kiểm tra</em> ở dòng tài khoản, bot tự chẩn đoán (không search). Kết quả từng mục
+                        (dòng <code>[Kiểm tra]</code> OK / WARN / FAIL kèm cách sửa) hiện ở trang <em>Nhật ký</em>.</li>
                       <li><b>Chạy</b>: chọn việc ở mục <em>Việc bot sẽ làm khi chạy</em>, rồi bấm <em>Chạy</em> (1 tài khoản) hoặc <em>Chạy tất cả</em>.</li>
                     </ol>
                   </div></div>

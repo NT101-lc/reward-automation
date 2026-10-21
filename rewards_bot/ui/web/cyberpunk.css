@@ -217,8 +217,6 @@
 [data-skin="cyberpunk"] .bg-red-lt { background: rgba(255, 42, 109, .15) !important; color: var(--cp-pink) !important; }
 [data-skin="cyberpunk"] .bg-blue-lt { background: rgba(123, 47, 247, .2) !important; color: #b892ff !important; }
 [data-skin="cyberpunk"] .avatar { border-radius: 0; }
-[data-skin="cyberpunk"] .checks .mark { border-radius: 0; }
-[data-skin="cyberpunk"] .checks .ok .mark { background: var(--cp-cyan); color: var(--cp-night); }
 
 /* ---------------------------------------------------------------- bảng, form, nhật ký, hộp thoại */
 [data-skin="cyberpunk"] .table thead th { color: var(--cp-cyan); font-stretch: semi-condensed; letter-spacing: .06em; background: transparent; }
@@ -232,9 +230,71 @@
 }
 [data-skin="cyberpunk"] .form-selectgroup-label { border-radius: 0; }
 [data-skin="cyberpunk"] .form-selectgroup-input:checked + .form-selectgroup-label { border-color: var(--cp-yellow); color: var(--cp-yellow); background: rgba(252, 238, 10, .06); }
-[data-skin="cyberpunk"] .logbox { background: #070a17; }
-[data-skin="cyberpunk"] .logbox .nm { color: var(--cp-cyan); }
-[data-skin="cyberpunk"] .logbox .er { color: var(--cp-pink); }
+/* nhật ký: màn hình terminal netrunner (scanline, chữ phát sáng, nhãn tài khoản vát góc, con trỏ nhấp nháy) */
+[data-skin="cyberpunk"] .log-head {
+  background: linear-gradient(90deg, rgba(252, 238, 10, .12), transparent 45%), #070a17;
+  border-bottom: 1px solid var(--cp-yellow);
+  color: var(--cp-dim);
+  font-family: var(--cp-display);
+  letter-spacing: .08em;
+  text-transform: uppercase;
+}
+[data-skin="cyberpunk"] .log-dots i { border-radius: 0; width: 14px; height: 6px; background: var(--cp-pink); transform: skewX(-30deg); }
+[data-skin="cyberpunk"] .log-dots i:nth-child(2) { background: var(--cp-yellow); }
+[data-skin="cyberpunk"] .log-dots i:nth-child(3) { background: var(--cp-cyan); }
+[data-skin="cyberpunk"] .log-title { color: var(--cp-yellow); font-weight: 700; text-shadow: 0 0 8px rgba(252, 238, 10, .45); }
+[data-skin="cyberpunk"] .log-count b { color: var(--cp-pink); }
+[data-skin="cyberpunk"] .logbox {
+  background:
+    repeating-linear-gradient(0deg, rgba(5, 217, 232, .035) 0 1px, transparent 1px 3px),
+    radial-gradient(120% 80% at 50% 0%, rgba(5, 217, 232, .07), transparent 70%),
+    #05070f;
+  color: #c9d3ff;
+  text-shadow: 0 0 6px rgba(5, 217, 232, .25);
+}
+[data-skin="cyberpunk"] .logbox .l { grid-template-columns: auto auto auto 1fr; }
+[data-skin="cyberpunk"] .logbox .l::before { content: ">"; color: var(--cp-yellow); font-weight: 700; }
+[data-skin="cyberpunk"] .logbox .l.empty::before { content: "> "; }
+[data-skin="cyberpunk"] .logbox .l:hover { background: linear-gradient(90deg, rgba(5, 217, 232, .10), transparent 80%); }
+[data-skin="cyberpunk"] .logbox .tm { color: rgba(5, 217, 232, .6); }
+[data-skin="cyberpunk"] .logbox .tm::before { content: "["; }
+[data-skin="cyberpunk"] .logbox .tm::after { content: "]"; }
+[data-skin="cyberpunk"] .logbox .nm {
+  --tone: var(--cp-cyan);
+  color: var(--tone);
+  border: 1px solid var(--tone);
+  padding: 0 7px;
+  min-width: 11ch;
+  text-align: center;
+  font: 600 11px/1.5 var(--cp-display);
+  letter-spacing: .06em;
+  text-transform: uppercase;
+  text-shadow: none;
+  background: color-mix(in srgb, var(--tone) 12%, transparent);
+  clip-path: polygon(0 0, calc(100% - 6px) 0, 100% 6px, 100% 100%, 0 100%);
+}
+[data-skin="cyberpunk"] .logbox .nm.tone-1 { --tone: var(--cp-yellow); }
+[data-skin="cyberpunk"] .logbox .nm.tone-2 { --tone: var(--cp-pink); }
+[data-skin="cyberpunk"] .logbox .nm.tone-3 { --tone: #b892ff; }
+[data-skin="cyberpunk"] .logbox .nm.tone-4 { --tone: #3dff9a; }
+[data-skin="cyberpunk"] .logbox .l.er { border-left-color: var(--cp-pink); background: linear-gradient(90deg, rgba(255, 42, 109, .16), transparent 70%); }
+[data-skin="cyberpunk"] .logbox .l.er .msg { color: var(--cp-pink); text-shadow: 0 0 8px rgba(255, 42, 109, .55); }
+[data-skin="cyberpunk"] .logbox .l.er::before { content: "!"; color: var(--cp-pink); }
+[data-skin="cyberpunk"] .logbox .l.warn { border-left-color: var(--cp-yellow); background: linear-gradient(90deg, rgba(252, 238, 10, .08), transparent 70%); }
+[data-skin="cyberpunk"] .logbox .l.warn .msg { color: var(--cp-yellow); }
+[data-skin="cyberpunk"] .logbox .l.ok .msg { color: var(--cp-cyan); text-shadow: 0 0 8px rgba(5, 217, 232, .5); }
+/* con trỏ khối nhấp nháy ở cuối nhật ký */
+[data-skin="cyberpunk"] .logbox::after {
+  content: "";
+  display: inline-block;
+  width: 9px;
+  height: 15px;
+  margin: 4px 16px 0 32px;
+  background: var(--cp-yellow);
+  box-shadow: 0 0 8px var(--cp-yellow);
+  animation: cp-blink 1s steps(1) infinite;
+}
+@keyframes cp-blink { 50% { opacity: 0; } }
 [data-skin="cyberpunk"] pre { border-radius: 0; background: #070a17; border-left: 2px solid var(--cp-cyan); }
 [data-skin="cyberpunk"] .dlg { border-radius: 0; border-color: var(--cp-yellow); background: var(--cp-panel);
   clip-path: polygon(0 0, calc(100% - 18px) 0, 100% 18px, 100% 100%, 18px 100%, 0 calc(100% - 18px)); }
@@ -246,7 +306,27 @@
 [data-skin="cyberpunk"] a { color: var(--cp-cyan); }
 
 /* ApexCharts: nền trong suốt, chữ dịu */
-[data-skin="cyberpunk"] .apexcharts-tooltip { border-radius: 0 !important; border-color: var(--cp-cyan) !important; }
+[data-skin="cyberpunk"] .apexcharts-tooltip.apexcharts-theme-dark {
+  border-radius: 0 !important;
+  border: 1px solid var(--cp-cyan) !important;
+  background: rgba(7, 10, 23, .94) !important;
+  box-shadow: 0 0 14px rgba(5, 217, 232, .3) !important;
+  font-family: var(--cp-display);
+}
+[data-skin="cyberpunk"] .apexcharts-tooltip.apexcharts-theme-dark .apexcharts-tooltip-title {
+  background: rgba(5, 217, 232, .12) !important;
+  border-bottom: 1px solid rgba(5, 217, 232, .35) !important;
+  color: var(--cp-cyan);
+  text-transform: uppercase;
+  letter-spacing: .08em;
+}
+[data-skin="cyberpunk"] .apexcharts-tooltip-marker { border-radius: 0 !important; }
+[data-skin="cyberpunk"] .apexcharts-xaxistooltip { border-radius: 0 !important; background: #070a17 !important; border-color: var(--cp-cyan) !important; color: var(--cp-cyan) !important; }
+[data-skin="cyberpunk"] .apexcharts-xaxistooltip-bottom::before, [data-skin="cyberpunk"] .apexcharts-xaxistooltip-bottom::after { border-bottom-color: var(--cp-cyan) !important; }
+[data-skin="cyberpunk"] .apexcharts-legend-text { color: var(--cp-text) !important; text-transform: uppercase; letter-spacing: .06em; font-size: 11px !important; }
+[data-skin="cyberpunk"] .apexcharts-legend-marker { border-radius: 0 !important; }
+/* nền khu vực biểu đồ: lưới chấm mờ như màn hình radar */
+[data-skin="cyberpunk"] .chart { background: radial-gradient(rgba(5, 217, 232, .10) 1px, transparent 1.2px) 0 0 / 16px 16px; }
 
 /* ================================================================ chi tiết HUD (tham khảo giao diện Cyberpunk 2077 / Edgerunners:
    chữ vuông in hoa, vạch cảnh báo vàng đen, ngoặc góc, scanline, đường chân trời Night City) */
@@ -414,6 +494,6 @@
 }
 
 @media (prefers-reduced-motion: reduce) {
-  [data-skin="cyberpunk"] .hero-figure .num, [data-skin="cyberpunk"] .brand-mark { animation: none; }
+  [data-skin="cyberpunk"] .hero-figure .num, [data-skin="cyberpunk"] .brand-mark, [data-skin="cyberpunk"] .logbox::after { animation: none; }
   [data-skin="cyberpunk"] .btn-primary::after { transition: none; }
 }
