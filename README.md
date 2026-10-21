@@ -109,6 +109,29 @@ lặp lại trong N ngày (lưu ở `data/search_history.json`). Muốn thêm c�
 - Giới hạn: phần mềm độc hại chạy dưới chính tài khoản Windows của bạn vẫn có thể đọc dữ liệu của bạn. Hãy giữ
   Windows và phần mềm diệt virus cập nhật.
 
+## Chạy trên Linux
+
+Bot (search, Daily Set, Visual Search…) và chế độ không giao diện chạy được trên Linux. Cần:
+
+1. Python 3.10+ và các gói: `pip install -r requirements.txt`
+2. Một trình duyệt dòng Chromium: **Microsoft Edge** (`microsoft-edge-stable`, nên dùng), Google Chrome hoặc Chromium.
+   Bot tự tìm theo tên lệnh trên PATH hoặc `/opt/microsoft/msedge`. Dùng Chrome/Chromium thì chọn trong trang Cài đặt
+   (hoặc sửa `"browser_channel"` trong `data/settings.json`).
+3. Giao diện (tùy chọn) cần thêm bộ hiển thị web cho pywebview, một trong hai:
+   - GTK: `sudo apt install python3-gi gir1.2-webkit2-4.1` (Debian/Ubuntu), hoặc
+   - Qt: `pip install "pywebview[qt]"`
+
+```bash
+./run.sh
+```
+```bash
+./run.sh --run-all --headless
+```
+
+Khác với Windows: không khóa quyền thư mục `data/` (tự `chmod 700 data` nếu cần), không đọc proxy hệ thống, và
+font Bahnschrift của giao diện Cyberpunk được thay bằng font dự phòng. Chạy hằng ngày bằng cron, ví dụ
+`30 7 * * * cd /đường/dẫn/rewards-bot && ./run.sh --run-all --headless`.
+
 ## Chạy tự động hằng ngày (không mở giao diện)
 
 ```bash
@@ -137,8 +160,8 @@ rewards-bot/
 │                           #   web/vendor/: Tabler, Tabler Icons, ApexCharts (MIT, lưu sẵn, không tải từ mạng)
 ├── tests/                  # pytest: logic, dữ liệu, giao diện
 ├── data/                   # tự tạo khi chạy (không commit)
-├── run.bat                 # mở app
-├── check.bat               # chạy test
+├── run.bat / run.sh        # mở app (Windows / Linux)
+├── check.bat / check.sh    # chạy test
 ├── CLAUDE.md               # ghi chú cho Claude Code (lệnh, cấu trúc, các lỗi đã tìm ra)
 ├── requirements.txt
 └── requirements-dev.txt

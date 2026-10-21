@@ -174,3 +174,18 @@ def test_free_profile_only_kills_true_orphans(tmp_path, monkeypatch):
                         lambda: [(12, f'msedge.exe --user-data-dir="{d}" --remote-debugging-port=0', False)])
     browser.free_profile(d, lambda m: None)  # chương trình mở nó đã tắt -> mồ côi -> đóng
     assert killed and "12" in killed[0]
+
+
+def test_unix_process_listing(monkeypatch):
+    from rewards_bot.core import browser
+
+    class R:
+        stdout = ("    1     0 /sbin/init\n"
+                  "  500     1 /opt/microsoft/msedge/msedge --user-data-dir=/x/a --remote-debugging-port=0\n"
+                  "  700   650 /usr/bin/python3 -m rewards_bot\n"
+                  "  710   700 /opt/microsoft/msedge/msedge --user-data-dir=/x/b --remote-debugging-port=0\n"
+                  "  711   710 /opt/microsoft/msedge/msedge --type=renderer\n"
+                  "  800   650 /usr/bin/bash\n")
+    monkeypatch.setattr(browser.subprocess, "run", lambda *a, **k: R())
+    got = {pid: alive for pid, _, alive in browser._unix_browser_processes()}
+    assert got == {500: False, 710: True}  # 500 mồ côi (cha là init), 710 có python còn sống; bỏ renderer và bash

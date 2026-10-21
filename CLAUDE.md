@@ -4,6 +4,11 @@ Microsoft Rewards bot for Windows: Playwright drives Microsoft Edge (one persist
 pywebview UI (`rewards_bot/ui/web`). The user speaks Vietnamese. UI strings, log messages and code comments are
 written in Vietnamese, and new ones should be too. Identifiers stay in English.
 
+Runs on Windows (main target) and Linux. Keep OS-specific code behind `sys.platform` checks:
+`edge_launcher` finds the browser per OS (`microsoft-edge-stable`/`google-chrome`/`chromium` on Linux) and builds
+the UA platform token per OS; `browser.py` lists processes with PowerShell on Windows and `ps` elsewhere; the UI uses
+WebView2 on Windows and lets pywebview pick GTK/Qt elsewhere. Tests fake `sys.platform` to cover the Linux paths.
+
 ## Commands
 
 ```bash

@@ -6,6 +6,7 @@ sang JS theo lô mỗi 250ms qua window.onEvents([...]).
 
 import json
 import queue
+import sys
 import threading
 import time
 from pathlib import Path
@@ -200,7 +201,7 @@ def _windows_dark() -> bool:
         with winreg.OpenKey(winreg.HKEY_CURRENT_USER,
                             r"Software\Microsoft\Windows\CurrentVersion\Themes\Personalize") as k:
             return winreg.QueryValueEx(k, "AppsUseLightTheme")[0] == 0
-    except OSError:
+    except (OSError, ImportError):  # ImportError: không phải Windows (không có winreg)
         return False
 
 
@@ -228,4 +229,5 @@ def main() -> None:
     threading.Thread(target=api._pump, daemon=True).start()
     # http_server: pywebview phục vụ thư mục web/ qua 127.0.0.1 (cổng ngẫu nhiên) để CSP 'self' áp dụng được;
     # trang mở bằng file:// thì Chromium không coi là 'self' và chặn luôn app.js
-    webview.start(gui="edgechromium", debug=False, http_server=True)
+    # Windows: Edge WebView2. Linux/macOS: để pywebview tự chọn (GTK/WebKitGTK, Qt hoặc Cocoa)
+    webview.start(gui="edgechromium" if sys.platform == "win32" else None, debug=False, http_server=True)

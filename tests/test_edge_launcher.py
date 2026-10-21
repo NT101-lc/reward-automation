@@ -38,3 +38,29 @@ def test_headless_uses_normal_user_agent(tmp_path):
     ua = next(a for a in args if a.startswith("--user-agent="))
     assert "Headless" not in ua and "Chrome/155.0.0.0" in ua and ua.endswith("Edg/155.0.0.0")
     assert not any(a.startswith("--user-agent=") for a in el.build_args(str(exe), "d", headless=False))
+
+
+def test_find_browser_on_linux(monkeypatch):
+    monkeypatch.setattr(el.sys, "platform", "linux")
+    paths = {"microsoft-edge-stable": "/usr/bin/microsoft-edge-stable", "chromium": "/usr/bin/chromium"}
+    monkeypatch.setattr(el.shutil, "which", lambda name: paths.get(name))
+    monkeypatch.setattr(el.os.path, "exists", lambda p: False)
+    assert el.find_browser("msedge") == "/usr/bin/microsoft-edge-stable"
+    assert el.find_browser("chrome") == "/usr/bin/chromium"
+    monkeypatch.setattr(el.shutil, "which", lambda name: None)
+    import pytest
+    with pytest.raises(el.LaunchError):
+        el.find_browser("msedge")
+
+
+def test_version_and_user_agent_on_linux(monkeypatch):
+    assert el.parse_version_output("Microsoft Edge 155.0.4283.62 \n") == "155"
+    assert el.parse_version_output("Chromium 141.0.7390.54 built on Debian") == "141"
+    assert el.parse_version_output("") is None
+    monkeypatch.setattr(el.sys, "platform", "linux")
+    monkeypatch.setattr(el, "browser_version", lambda exe: "155")
+    ua = el.normal_user_agent("/usr/bin/microsoft-edge-stable")
+    assert "X11; Linux x86_64" in ua and ua.endswith("Edg/155.0.0.0") and "Headless" not in ua
+    assert "Edg/" not in el.normal_user_agent("/usr/bin/google-chrome")
+    args = el.build_args("/usr/bin/microsoft-edge-stable", "/d", headless=True)
+    assert "--edge-skip-compat-layer-relaunch" not in args  # cờ này chỉ dành cho Edge trên Windows

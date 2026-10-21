@@ -10,6 +10,7 @@ DevToolsActivePort trong thư mục profile. Cổng đóng cùng trình duyệt.
 """
 
 import os
+import re
 import shutil
 import subprocess
 import sys
@@ -19,10 +20,22 @@ from pathlib import Path
 # Cờ đánh dấu trình duyệt do bot mở (để nhận ra bản mồ côi sau khi app bị tắt giữa chừng)
 BOT_MARKER = "--remote-debugging-port=0"
 
-_CANDIDATES = {
+_CANDIDATES = {  # Windows: đường dẫn tương đối trong Program Files / LocalAppData
     "msedge": [r"Microsoft\Edge\Application\msedge.exe"],
     "chrome": [r"Google\Chrome\Application\chrome.exe"],
 }
+# Linux / macOS: tên lệnh trên PATH và vị trí cài mặc định
+_UNIX_NAMES = {
+    "msedge": ["microsoft-edge-stable", "microsoft-edge", "microsoft-edge-beta", "microsoft-edge-dev", "msedge"],
+    "chrome": ["google-chrome-stable", "google-chrome", "chromium", "chromium-browser"],
+}
+_UNIX_PATHS = {
+    "msedge": ["/opt/microsoft/msedge/msedge", "/Applications/Microsoft Edge.app/Contents/MacOS/Microsoft Edge"],
+    "chrome": ["/opt/google/chrome/chrome", "/Applications/Google Chrome.app/Contents/MacOS/Google Chrome"],
+}
+# phần hệ điều hành trong User-Agent, giống trình duyệt thật trên từng nền tảng
+_UA_PLATFORM = {"win32": "Windows NT 10.0; Win64; x64", "darwin": "Macintosh; Intel Mac OS X 10_15_7"}
+_UA_PLATFORM_DEFAULT = "X11; Linux x86_64"
 
 
 class LaunchError(RuntimeError):
@@ -38,20 +51,30 @@ def find_browser(channel: str) -> str:
         if path and os.path.exists(path):
             return path
         raise LaunchError("Chưa cài Chromium của Playwright. Chạy: python -m playwright install chromium")
-    roots = [os.environ.get(k) for k in ("PROGRAMFILES(X86)", "PROGRAMFILES", "LOCALAPPDATA")]
-    for rel in _CANDIDATES.get(channel, []):
-        for root in filter(None, roots):
-            path = os.path.join(root, rel)
+    if sys.platform == "win32":
+        roots = [os.environ.get(k) for k in ("PROGRAMFILES(X86)", "PROGRAMFILES", "LOCALAPPDATA")]
+        for rel in _CANDIDATES.get(channel, []):
+            for root in filter(None, roots):
+                path = os.path.join(root, rel)
+                if os.path.exists(path):
+                    return path
+    else:
+        for name in _UNIX_NAMES.get(channel, []):
+            found = shutil.which(name)
+            if found:
+                return found
+        for path in _UNIX_PATHS.get(channel, []):
             if os.path.exists(path):
                 return path
     found = shutil.which(channel)
     if found:
         return found
-    raise LaunchError(f"Không tìm thấy trình duyệt '{channel}' trên máy")
+    hint = {"msedge": "Edge (gói microsoft-edge-stable)", "chrome": "Google Chrome hoặc Chromium"}.get(channel, channel)
+    raise LaunchError(f"Không tìm thấy trình duyệt '{channel}' trên máy. Cài {hint} hoặc chọn trình duyệt khác trong Cài đặt")
 
 
-def browser_version(exe: str):
-    """Số phiên bản chính (vd "155") từ thư mục phiên bản nằm cạnh file chạy (Edge/Chrome trên Windows)."""
+def _version_from_folder(exe: str):
+    """Windows: thư mục phiên bản (vd 155.0.4283.62) nằm cạnh msedge.exe / chrome.exe."""
     folder = os.path.dirname(exe)
     try:
         versions = [d for d in os.listdir(folder) if d[:1].isdigit() and d.count(".") == 3]
@@ -60,13 +83,37 @@ def browser_version(exe: str):
     return max(versions, key=lambda v: tuple(int(x) for x in v.split("."))).split(".")[0] if versions else None
 
 
+def parse_version_output(text: str):
+    """Số phiên bản chính từ kết quả `--version`, vd "Microsoft Edge 155.0.4283.62" -> "155"."""
+    m = re.search(r"(\d+)\.\d+\.\d+(?:\.\d+)?", text or "")
+    return m.group(1) if m else None
+
+
+def browser_version(exe: str):
+    """Số phiên bản chính (vd "155") của trình duyệt."""
+    major = _version_from_folder(exe)
+    if major or sys.platform == "win32":  # trên Windows, msedge.exe --version không in gì ra
+        return major
+    try:
+        out = subprocess.run([exe, "--version"], capture_output=True, text=True, timeout=15).stdout
+    except (OSError, subprocess.SubprocessError):
+        return None
+    return parse_version_output(out)
+
+
 def normal_user_agent(exe: str):
     """User-Agent của trình duyệt chạy bình thường. Chạy ẩn thì Edge tự ghi "HeadlessChrome" và Bing từ chối Visual Search."""
     major = browser_version(exe)
     if not major:
         return None
-    ua = f"Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/{major}.0.0.0 Safari/537.36"
-    return ua + f" Edg/{major}.0.0.0" if os.path.basename(exe).lower() == "msedge.exe" else ua
+    platform = _UA_PLATFORM.get(sys.platform, _UA_PLATFORM_DEFAULT)
+    ua = f"Mozilla/5.0 ({platform}) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/{major}.0.0.0 Safari/537.36"
+    return ua + f" Edg/{major}.0.0.0" if is_edge(exe) else ua
+
+
+def is_edge(exe: str) -> bool:
+    name = os.path.basename(exe).lower()
+    return name.startswith("msedge") or "microsoft-edge" in name or name == "microsoft edge"
 
 
 def build_args(exe: str, user_data_dir: str, headless: bool, extra=()) -> list:
@@ -74,7 +121,7 @@ def build_args(exe: str, user_data_dir: str, headless: bool, extra=()) -> list:
     args = [exe, f"--user-data-dir={user_data_dir}", BOT_MARKER, "--remote-debugging-address=127.0.0.1",
             "--disable-blink-features=AutomationControlled", "--no-first-run", "--no-default-browser-check",
             "--window-size=1366,900", *extra]
-    if os.path.basename(exe).lower() == "msedge.exe":
+    if os.path.basename(exe).lower() == "msedge.exe":  # chỉ Edge trên Windows mới tự mở lại qua lớp tương thích
         args.append("--edge-skip-compat-layer-relaunch")  # để Edge không tự mở lại thành process khác
     if headless:
         # cửa sổ ẩn hẳn ra ngoài màn hình; KHÔNG thêm --disable-gpu (theo AutoRewarder, cờ đó làm hỏng việc đếm phút Edge)
