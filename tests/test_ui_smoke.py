@@ -99,7 +99,7 @@ def test_pages_render_without_errors(server):
         assert pg.evaluate("document.documentElement.dataset.bsTheme") == "dark"
         pg.click(".theme-switch button[data-theme=cyberpunk]")  # giao diện Cyberpunk: nền tối + lớp riêng
         assert pg.evaluate("[document.documentElement.dataset.bsTheme, document.documentElement.dataset.skin]") == ["dark", "cyberpunk"]
-        assert pg.evaluate("getComputedStyle(document.body).fontFamily").startswith('"Bahnschrift"')
+        assert pg.evaluate("getComputedStyle(document.body).fontFamily").lstrip('"').startswith("Bahnschrift")
         pg.click(".theme-switch button[data-theme=light]")
         assert pg.evaluate("document.documentElement.dataset.skin") is None
         if SHOT:
