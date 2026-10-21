@@ -393,9 +393,9 @@ function renderToggles() {
     ["do_quests", "Daily Set, Keep earning", "Bấm từng thẻ task, làm quiz và poll", ic["Daily Set"] || any("Daily Set"), "ti-cards"],
     ["do_pc", "Search PC", "Tìm đến khi đủ điểm search máy tính", ic["Tìm kiếm"] || any("Tìm kiếm"), "ti-device-desktop"],
     ["do_mobile", "Search Mobile", "Giả lập điện thoại, tìm đến khi đủ điểm", ic["Mobile"] || any("Mobile"), "ti-device-mobile"],
-    ["do_images", "Search ảnh", "Bing Images. Không lên Visual Search: mục đó phải dùng camera, làm tay", ic["Visual Search"] || any("Visual Search"), "ti-photo"],
-    ["do_browse", "Browse", `Lướt web ${S.settings.browse_minutes} phút cho Edge – Minutes (cần tắt Chạy ẩn)`, "", "ti-world"],
-    ["headless", "Chạy ẩn", "Không hiện cửa sổ trình duyệt. Browse sẽ không được tính", "", "ti-eye-off"],
+    ["do_visual", "Visual Search", "Tìm bằng 1 ảnh qua nút camera của Bing (mỗi ngày 1 lượt)", ic["Visual Search"] || any("Visual Search"), "ti-camera"],
+    ["do_browse", "Browse", `Lướt web ${S.settings.browse_minutes} phút. Không làm lên Edge – Minutes (mục đó phải tự dùng Edge)`, "", "ti-world"],
+    ["headless", "Chạy ẩn", "Không hiện cửa sổ trình duyệt", "", "ti-eye-off"],
   ];
   $("#task-toggles").innerHTML = items.map(([k, t, d, im, ti]) => `
     <label class="list-group-item toggle-item">${img(im) || `<span class="ico"><i class="ti ${ti}"></i></span>`}
@@ -476,7 +476,6 @@ const SETTING_FIELDS = [
   ["search_delay_min", "Nghỉ ít nhất giữa 2 lượt search (giây)"],
   ["search_delay_max", "Nghỉ nhiều nhất giữa 2 lượt search (giây)"],
   ["extra_searches", "Số lượt search thêm cho chắc đủ điểm"],
-  ["image_searches", "Số lượt search ảnh"],
   ["browse_minutes", "Thời gian browse (phút)"],
   ["history_days", "Không lặp lại câu search đã dùng trong (ngày)"],
 ];

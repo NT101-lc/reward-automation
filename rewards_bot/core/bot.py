@@ -1,5 +1,6 @@
 """Bot Microsoft Rewards cho MỘT profile. Mỗi profile chạy trong thread riêng với sync_playwright riêng."""
 
+import base64
 import json
 import random
 import re
@@ -9,7 +10,7 @@ from urllib.parse import quote_plus, urljoin, urlparse
 
 from playwright.sync_api import sync_playwright, BrowserContext, Page, TimeoutError as PWTimeout
 
-from . import security
+from . import edge_launcher, security
 from .browser import ProfileInUse, free_profile
 from .config import profile_dir
 from .rewards_page import (SCRAPE_JS, activity, build_task_rows, empty_state, group_icons, icon, parse_breakdown,
@@ -60,6 +61,8 @@ class RewardsBot:
         self.state = empty_state()
         self.stalled: set = set()  # loại search bị dừng vì không được cộng điểm
         self.local: dict = {}    # task do app tự làm: title -> {"progress","max","unit"}
+        self._launched = None    # trình duyệt do bot mở (edge_launcher), None ở chế độ gắn vào Edge
+        self._browser = None
 
     # ------------------------------------------------------------ helpers
     def log(self, msg: str) -> None:
@@ -78,12 +81,12 @@ class RewardsBot:
             raise StopRequested()
 
     # task của app -> dòng "Your activity" trên Rewards mà nó nhắm tới (key = tên dòng viết thường)
-    LOCAL_TO_ACTIVITY = {"Browse": "edge", "Search ảnh": "visual search"}
+    LOCAL_TO_ACTIVITY = {"Browse": "edge", "Visual Search": "visual search"}
 
     def report(self) -> None:
         """Gửi danh sách task (từ Rewards + task thêm của app) lên giao diện."""
         rows = build_task_rows(self.state)
-        local_icons = {"Search ảnh": icon(self.state, "visual search"), "Browse": icon(self.state, "edge", "bing")}
+        local_icons = {"Visual Search": icon(self.state, "visual search"), "Browse": icon(self.state, "edge", "bing")}
         for title, t in self.local.items():
             bot_note = f"bot: {t['progress']}/{t['max']} {t['unit']}"
             target = activity(self.state, self.LOCAL_TO_ACTIVITY.get(title, ""))
@@ -115,17 +118,23 @@ class RewardsBot:
         d = profile_dir(self.profile)
         d.mkdir(parents=True, exist_ok=True)
         free_profile(d, self.log)  # đóng Edge mồ côi của bot / báo rõ nếu profile đang mở ở cửa sổ khác
-        kwargs = dict(user_data_dir=str(d), headless=headless, locale="en-US",
-                      viewport={"width": 1280, "height": 800},
-                      ignore_https_errors=False,  # luôn kiểm tra chứng chỉ HTTPS, chặn proxy chen giữa giả chứng chỉ
-                      args=security.browser_args(self.s))
-        if self.s.get("browser_channel"):
-            kwargs["channel"] = self.s["browser_channel"]
         if self.s.get("bypass_proxy", True):
             proxy = security.system_proxy()
             if proxy:
                 self.log(f"Máy đang bật proxy ({proxy}); trình duyệt của bot bỏ qua proxy này")
-        return p.chromium.launch_persistent_context(**kwargs)
+        # mở trình duyệt "thường" (ít cờ, không có cờ tự động hóa của Playwright) rồi gắn vào qua CDP cục bộ;
+        # chứng chỉ HTTPS vẫn được kiểm tra như trình duyệt bình thường
+        self._launched = edge_launcher.launch(self.s.get("browser_channel", "msedge"), str(d), headless,
+                                              extra=security.browser_args(self.s))
+        try:
+            self._browser = p.chromium.connect_over_cdp(self._launched.cdp_url)
+        except Exception:
+            self._launched.close()
+            self._launched = None
+            raise
+        ctx = self._browser.contexts[0] if self._browser.contexts else self._browser.new_context()
+        ctx.set_extra_http_headers({"Accept-Language": "en-US,en;q=0.9"})  # trang Rewards hiện tiếng Anh để đọc được
+        return ctx
 
     def _close(self, ctx: BrowserContext, own: list) -> None:
         for pg in own:
@@ -133,11 +142,9 @@ class RewardsBot:
                 pg.close()
             except Exception:
                 pass
-        if self.profile.get("mode") != "cdp":
-            try:
-                ctx.close()
-            except Exception:
-                pass
+        if self._launched is not None:
+            self._launched.close(self._browser)
+            self._launched = self._browser = None
 
     @staticmethod
     def _real_versions(ctx: BrowserContext, cdp) -> dict:
@@ -474,35 +481,138 @@ class RewardsBot:
         """
         ctx.clear_cookies(name=re.compile(r"^(_SS|_EDGE_S|_Rwho)$"), domain=re.compile(r"bing\.com$"))
 
-    def do_image_searches(self, page: Page, count: int) -> None:
+    VISUAL_MISSION_URL = "https://www.bing.com/?features=vsstreak,vstooltip&form=ML2XES"
+    VISUAL_RESULT_MARKERS = ("form=sbi", "iss=sbi", "bcid=", "view=detailv2")
+
+    def _pick_visual_image(self, ctx: BrowserContext, page: Page):
+        """Lấy 1 ảnh ngẫu nhiên từ Bing Images (mỗi lần một ảnh khác) để làm Visual Search: (tên, mime, bytes)."""
+        for _ in range(3):
+            q = random.choice(IMAGE_QUERIES)
+            page.goto(f"https://www.bing.com/images/search?q={quote_plus(q)}&form=HDRSC2&first=1",
+                      wait_until="domcontentloaded", timeout=30000)
+            self.sleep(2, 4)
+            srcs = page.evaluate(r"""() => Array.from(document.querySelectorAll('img.mimg, a.iusc img'))
+                .map(i => i.currentSrc || i.src).filter(u => /^https:\/\/[a-z0-9.-]*bing\.(com|net)\//.test(u)).slice(0, 20)""")
+            random.shuffle(srcs)
+            for src in srcs[:5]:
+                try:
+                    r = ctx.request.get(src, timeout=15000)
+                    body = r.body()
+                except Exception:
+                    continue
+                mime = (r.headers.get("content-type") or "").split(";")[0]
+                if r.ok and mime in ("image/jpeg", "image/png", "image/webp") and len(body) > 3000:
+                    ext = {"image/jpeg": "jpg", "image/png": "png", "image/webp": "webp"}[mime]
+                    return f"{random.randrange(10**8, 10**9)}.{ext}", mime, body
+        return None
+
+    def do_visual_search(self, ctx: BrowserContext, page: Page) -> None:
+        """Visual Search: bấm camera trên Bing Images và tải 1 ảnh lên (cách AutoRewarder làm, đã kiểm chứng)."""
+        title = "Visual Search"
         row = activity(self.state, "visual search")
         if row and row["progress"] >= row["max"]:
-            self.log("Visual Search: đã đủ")
+            self.log("Visual Search: hôm nay đã xong")
             return
-        title = "Search ảnh"
-        self.log(f"{title}: {count} lượt trên Bing Images")
-        self.set_local(title, 0, count, "lượt")
-        for i in range(count):
-            self.check_stop()
-            q = random.choice(IMAGE_QUERIES)  # câu có hình để xem, không lấy bộ câu kiến thức của search chữ
-            self.status(progress=f"Ảnh {i + 1}/{count}")
-            try:
-                page.goto(f"https://www.bing.com/images/search?q={quote_plus(q)}&form=HDRSC2&first=1",
-                          wait_until="domcontentloaded", timeout=30000)
-                self.sleep(2, 4)
-                page.mouse.wheel(0, random.randint(400, 1500))
-                thumbs = page.locator("a.iusc")
-                if thumbs.count():
-                    thumbs.nth(random.randrange(min(thumbs.count(), 10))).click(timeout=5000)
-                    self.sleep(3, 6)
-                    page.keyboard.press("Escape")
-            except StopRequested:
-                raise
-            except Exception as e:
-                self.log(f"  lỗi khi tìm ảnh '{q}': {e}")
-            self.log(f"  [Ảnh {i + 1}/{count}] {q}")
-            self.set_local(title, i + 1, count, "lượt")
-            self.sleep(self.s["search_delay_min"], self.s["search_delay_max"])
+        self.status(progress=title)
+        self.set_local(title, 0, 1, "lượt")
+        for attempt in (1, 2):  # lượt 2 dùng ảnh khác (Bing ghi nhận theo nội dung ảnh)
+            image = self._pick_visual_image(ctx, page)
+            if not image:
+                self.log("cảnh báo: Visual Search: không lấy được ảnh nào từ Bing Images, bỏ qua")
+                return
+            if self._visual_upload(ctx, page, *image):
+                return
+            if attempt == 1:
+                self.log("  Visual Search: thử lại với ảnh khác")
+                self.sleep(5, 10)
+
+    # Thả ảnh vào khung upload như kéo-thả thật (cách AutoRewarder dùng). Đưa ảnh qua ô chọn file thì Bing trả 400.
+    _DROP_JS = r"""([b64, name, mime]) => {
+      const bin = atob(b64), bytes = new Uint8Array(bin.length);
+      for (let i = 0; i < bin.length; i++) bytes[i] = bin.charCodeAt(i);
+      const dt = new DataTransfer();
+      dt.items.add(new File([bytes], name, {type: mime}));
+      const target = document.querySelector("#sb_sbipane, [class*='sbipane']") || document.body;
+      for (const t of ["dragenter", "dragover", "drop"])
+        target.dispatchEvent(new DragEvent(t, {bubbles: true, cancelable: true, dataTransfer: dt}));
+      return dt.files.length;
+    }"""
+
+    def _visual_result(self, ctx: BrowserContext, seconds: float) -> str:
+        """URL trang kết quả Visual Search nếu đã tới (tab hiện tại hoặc tab mới), chờ tối đa `seconds`."""
+        end = time.time() + seconds
+        while True:
+            url = next((pg.url for pg in ctx.pages if any(m in pg.url.lower() for m in self.VISUAL_RESULT_MARKERS)), "")
+            if url or time.time() >= end:
+                return url
+            self.sleep(1)
+
+    def _visual_upload(self, ctx: BrowserContext, page: Page, name: str, mime: str, body: bytes) -> bool:
+        title = "Visual Search"
+        # trang kết quả tự gọi /rewardsapp/reportactivity?...bcid=... khi Rewards ghi nhận lượt tìm bằng ảnh
+        reported = []
+
+        def on_response(resp):
+            if "/rewardsapp/reportactivity" in resp.url.lower():
+                reported.append(resp.status)
+
+        ctx.on("response", on_response)
+        try:
+            page.goto(self.VISUAL_MISSION_URL, wait_until="domcontentloaded", timeout=30000)  # như nút "Search now"
+            self.sleep(1, 3)
+            page.goto("https://www.bing.com/images", wait_until="load", timeout=30000)
+            self.sleep(2, 4)
+            page.locator("#sb_sbi, #sbiarea [role='button'], #sbi_b").first.click(timeout=15000)
+            page.locator("#sb_sbipane, [class*='sbipane']").first.wait_for(timeout=15000)
+            self.sleep(2, 4)
+            page.evaluate(self._DROP_JS, [base64.b64encode(body).decode("ascii"), name, mime])
+            result = self._visual_result(ctx, 20)
+            if not result:  # dự phòng: ô chọn file (nếu trang có)
+                file_input = page.locator("#sb_fileinput, input.fileinput[type='file'], input[type='file'][accept*='image']")
+                if file_input.count():
+                    file_input.first.set_input_files({"name": name, "mimeType": mime, "buffer": body}, timeout=15000)
+                    result = self._visual_result(ctx, 25)
+        except StopRequested:
+            raise
+        except Exception as e:
+            self.log(f"Lỗi: Visual Search: không mở được ô tải ảnh của Bing ({e})")
+            ctx.remove_listener("response", on_response)
+            return False
+        if not result:
+            ctx.remove_listener("response", on_response)
+            unable = page.locator("text=Unable to process this search").count() > 0
+            self.log("Lỗi: Visual Search: Bing " + ("báo 'Unable to process this search'" if unable
+                                                    else "không trả kết quả sau 45 giây"))
+            return False
+        self.log(f"  Visual Search: Bing đã tìm bằng ảnh ({result[:90]})")
+        self.sleep(4, 8)
+        ctx.remove_listener("response", on_response)
+        self.log("  Visual Search: trang kết quả đã báo hoạt động cho Rewards" if reported
+                 else "  cảnh báo: Visual Search: chưa thấy trang kết quả báo hoạt động cho Rewards")
+        for pg in list(ctx.pages):  # đóng tab kết quả mở thêm
+            if pg is not page and any(m in pg.url.lower() for m in self.VISUAL_RESULT_MARKERS):
+                try:
+                    pg.close()
+                except Exception:
+                    pass
+        try:  # trang kết quả có thể còn tự chuyển tiếp thêm một lần
+            page.wait_for_load_state("load", timeout=15000)
+        except Exception:
+            pass
+        try:
+            st = self.read_state(page)
+        except (StopRequested, NotLoggedIn):
+            raise
+        except Exception:
+            self.sleep(3)
+            st = self.read_state(page)
+        row = activity(st, "visual search")
+        if row and row["progress"] >= row["max"]:
+            self.log("Visual Search: đã được Rewards ghi nhận")
+            self.set_local(title, 1, 1, "lượt")
+        else:
+            self.log("cảnh báo: Visual Search đã chạy nhưng Rewards chưa ghi nhận (có thể cập nhật trễ, bấm Làm mới sau)")
+        return True
 
     def do_browse(self, page: Page, minutes: int) -> None:
         title = "Browse"
@@ -594,16 +704,10 @@ class RewardsBot:
             page.bring_to_front()
             self.log("Đăng nhập tài khoản Microsoft ở tab Rewards, rồi sang tab bing.com kiểm tra góc phải: "
                      "phải là CÙNG tài khoản (nếu khác thì đăng xuất và đăng nhập lại). Xong thì đóng cửa sổ.")
-            while not self.stop.is_set() and ctx.pages:
-                try:
-                    ctx.pages[0].wait_for_timeout(1000)
-                except Exception:
-                    if not ctx.pages:
-                        break
-            try:
-                ctx.close()
-            except Exception:
-                pass
+            # đợi người dùng đóng cửa sổ trình duyệt (process kết thúc) hoặc bấm Dừng
+            while not self.stop.is_set() and self._launched.alive():
+                self.stop.wait(1)
+            self._close(ctx, [])
         self.status(state="Sẵn sàng", progress="")
         self.log("Đã lưu phiên đăng nhập")
 
@@ -687,7 +791,7 @@ class RewardsBot:
                 missed = [c["title"] for c in st["daily"] + st["more"] if not c["done"]]
                 if missed:
                     self.log("cảnh báo: các thẻ chưa được Rewards ghi nhận sau khi làm: " + "; ".join(missed))
-            wants_search = any(self.s.get(k, d) for k, d in (("do_pc", True), ("do_mobile", True), ("do_images", True)))
+            wants_search = any(self.s.get(k, d) for k, d in (("do_pc", True), ("do_mobile", True), ("do_visual", True)))
             account_ok = self.bing_account_ok(page) if wants_search else True
             if account_ok:
                 if self.s.get("do_pc", True):
@@ -703,8 +807,8 @@ class RewardsBot:
                     self.new_bing_session(ctx)  # search ảnh / browse sau đó lại là PC
                 if self.s.get("do_pc", True) or self.s.get("do_mobile", True):
                     self.read_state(page)
-                if self.s.get("do_images", True):
-                    self.do_image_searches(page, int(self.s.get("image_searches", 6)))
+                if self.s.get("do_visual", True):
+                    self.do_visual_search(ctx, page)
             if self.s.get("do_browse", False):
                 self.do_browse(page, int(self.s.get("browse_minutes", 30)))
 

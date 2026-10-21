@@ -41,6 +41,12 @@ python -m rewards_bot
   tài khoản không (desktop và mobile), profile có bị cửa sổ khác giữ không, proxy. Cũng chạy được bằng
   `python -m rewards_bot --check`.
 
+### Cách bot mở trình duyệt
+Ở chế độ **Cửa sổ riêng**, app tự mở Edge như một trình duyệt bình thường (chỉ vài cờ cần thiết, không có cờ tự động hóa,
+`navigator.webdriver` = false) rồi điều khiển qua một cổng debug **chỉ trên 127.0.0.1**, do Edge tự chọn và đóng cùng
+trình duyệt, giống cách Selenium làm. Mở bằng cờ tự động hóa của Playwright thì Bing từ chối Visual Search.
+Ý tưởng này lấy từ [AutoRewarder](https://github.com/safarsin/AutoRewarder) (MIT).
+
 ### Bot tự bảo vệ khi chạy
 - Trước khi search, đối chiếu điểm trên bing.com với Rewards; **sai tài khoản thì không search** (để không cộng nhầm).
 - Cứ 3 lượt search đọc lại điểm; **6 lượt liên tiếp không được cộng thì dừng** loại search đó và ghi lý do.
@@ -56,11 +62,11 @@ python -m rewards_bot
   dữ liệu lần cuối ở `data/dashboard.json`.
 
 ### Task thêm
-- **Search ảnh**: tìm trên Bing Images (mặc định 6 lượt) với câu có hình để xem, rồi mở xem một ảnh. Mặc định **tắt**:
-  việc này **không** được tính cho "Visual Search – Activity" / Visual Search Streak. Mục đó cần tìm bằng camera
-  ("Search using an image" trên bing.com hoặc app Bing); bot thử upload ảnh thì Bing báo lỗi, nên hãy làm tay.
+- **Visual Search**: mỗi ngày 1 lượt: lấy ngẫu nhiên 1 ảnh trên Bing Images, bấm nút camera ("Search using an image")
+  và tải ảnh đó lên, rồi đọc lại Rewards xem đã được ghi nhận chưa. Bật/tắt ở mục "Việc bot sẽ làm khi chạy".
 - **Browse**: lướt các trang tin tức/kiến thức trong N phút (mặc định 30), cuộn trang và đi theo link nội bộ. Mặc định **tắt**.
-  Task "browse với Edge" thường được tính qua tài khoản đăng nhập trong chính Edge, nên chạy ở chế độ *Gắn vào Edge đang mở* (Edge đã đăng nhập) thì dễ được tính hơn.
+  **Không** làm lên "Edge – Minutes" (Edge Browsing Streak): đã thử chạy ẩn, có cửa sổ, bỏ cờ tự động hóa của Playwright,
+  Edge đăng nhập đúng tài khoản, đều 0 phút. Mục đó chỉ tính khi bạn tự dùng Edge đã đăng nhập tài khoản đó.
 - Số lượt và số phút chỉnh trong trang Cài đặt.
 
 ### Câu search
@@ -121,6 +127,7 @@ rewards-bot/
 │   │   ├── bot.py          # bot cho 1 tài khoản: task, search, kiểm tra (diagnose)
 │   │   ├── rewards_page.py # đọc trang Rewards (điểm, task, icon, Points breakdown)
 │   │   ├── runner.py       # chạy nhiều tài khoản song song + ghi log ra file
+│   │   ├── edge_launcher.py # mở Edge "thường" + cổng debug cục bộ để Playwright gắn vào
 │   │   ├── browser.py      # phát hiện trình duyệt đang giữ profile
 │   │   ├── security.py     # khóa quyền data/, proxy, cổng debug
 │   │   ├── instance.py     # chỉ 1 cửa sổ app chạy cùng lúc

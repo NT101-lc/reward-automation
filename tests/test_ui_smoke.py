@@ -43,7 +43,7 @@ def boot_data():
     return {
         "settings": {"search_delay_min": 8, "search_delay_max": 20, "extra_searches": 2, "browser_channel": "msedge",
                      "headless": True, "max_parallel": 3, "history_days": 30, "do_quests": True, "do_pc": True,
-                     "do_mobile": True, "do_images": False, "image_searches": 6, "do_browse": False,
+                     "do_mobile": True, "do_visual": True, "do_browse": False,
                      "browse_minutes": 30, "bypass_proxy": True, "theme": "light"},
         "profiles": [{"name": "acc <img src=x onerror=alert(1)>", "mode": "managed", "cdp_port": 9222, "dir": "a"}],
         "pstate": {"acc <img src=x onerror=alert(1)>": {

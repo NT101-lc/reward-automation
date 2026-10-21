@@ -259,9 +259,10 @@
                     <ul>
                       <li><b>Daily Set, Keep earning</b>: bấm từng thẻ, làm quiz và poll cơ bản.</li>
                       <li><b>Search PC / Search Mobile</b>: tìm đến khi đủ 90 / 60 điểm. Cứ 3 lượt đọc lại điểm; 6 lượt liền không được cộng thì dừng và ghi lý do.</li>
-                      <li><b>Browse</b>: lướt web N phút cho mục <em>Edge – Minutes</em>. Mục này được Edge tính theo thời gian dùng cửa sổ Edge,
-                        nên <b>đừng bật Chạy ẩn</b> khi cần Browse.</li>
-                      <li><b>Search ảnh</b>: tìm trên Bing Images. <b>Không</b> được tính cho <em>Visual Search</em> (xem mục dưới).</li>
+                      <li><b>Browse</b>: lướt web N phút. <b>Không</b> làm lên <em>Edge – Minutes</em> (Edge Browsing Streak):
+                        đã thử chạy ẩn, có cửa sổ, bỏ cờ tự động hóa, Edge đăng nhập đúng tài khoản, đều 0 phút. Mục đó chỉ tính khi
+                        bạn tự dùng Edge (máy tính hoặc điện thoại) đã đăng nhập tài khoản đó.</li>
+                      <li><b>Visual Search</b>: mỗi ngày tải 1 ảnh lên bằng nút camera của Bing Images (ảnh lấy ngẫu nhiên từ Bing).</li>
                     </ul>
                   </div></div>
                 </div>
@@ -272,7 +273,7 @@
                   <div id="g-manual" class="accordion-collapse collapse" data-bs-parent="#guide"><div class="accordion-body">
                     <ul>
                       <li><b>Bing App – Check-in</b> (Bing App Streak): mở app Bing trên điện thoại mỗi ngày.</li>
-                      <li><b>Visual Search</b>: trên bing.com bấm biểu tượng camera <em>Search using an image</em> (hoặc camera trong app Bing) và tìm bằng 1 ảnh.</li>
+                      <li><b>Edge – Minutes</b> (Edge Browsing Streak): dùng Edge đã đăng nhập tài khoản đó ít nhất 30 phút mỗi ngày.</li>
                     </ul>
                     <p class="text-secondary m-0">Hai việc này giữ các chuỗi streak, giúp nhận dấu cho Stamp bonus.</p>
                   </div></div>
@@ -295,7 +296,7 @@
                   <div id="g-auto" class="accordion-collapse collapse" data-bs-parent="#guide"><div class="accordion-body">
                     <p>Tạo task trong <b>Windows Task Scheduler</b>, thư mục bắt đầu là thư mục dự án, lệnh:</p>
                     <pre>python -m rewards_bot --run-all --headless</pre>
-                    <p class="text-secondary m-0">Lệnh này chạy ẩn nên phần Browse sẽ không được tính. Chỉ chạy được khi cửa sổ app đang đóng.</p>
+                    <p class="text-secondary m-0">Chỉ chạy được khi cửa sổ app đang đóng.</p>
                   </div></div>
                 </div>
 

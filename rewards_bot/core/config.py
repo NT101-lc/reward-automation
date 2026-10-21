@@ -25,8 +25,7 @@ DEFAULT_SETTINGS = {
     "do_quests": True,
     "do_pc": True,
     "do_mobile": True,
-    "do_images": False,  # không tính cho Visual Search (phải dùng camera trong app/bing.com)
-    "image_searches": 6,
+    "do_visual": True,  # Visual Search: tải 1 ảnh lên bằng nút camera của Bing Images
     "do_browse": False,
     "theme": "system",  # giao diện: "system" (theo Windows) / "light" / "dark"
     "bypass_proxy": True,  # trình duyệt của bot không đi qua proxy hệ thống

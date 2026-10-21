@@ -157,3 +157,20 @@ def test_browse_stops_when_browser_closed():
         bot.do_browse(ClosedPage(), 30)
     assert ClosedPage.calls == 1
     assert any("trình duyệt đã bị đóng" in m for m in logs)
+
+
+def test_free_profile_only_kills_true_orphans(tmp_path, monkeypatch):
+    import pytest
+    from rewards_bot.core import browser
+    d = tmp_path / "acc"
+    killed = []
+    monkeypatch.setattr(browser.subprocess, "run", lambda args, **k: killed.append(args))
+    monkeypatch.setattr(browser, "_browser_processes",
+                        lambda: [(11, f'msedge.exe --user-data-dir="{d}" --remote-debugging-port=0', True)])
+    with pytest.raises(browser.ProfileInUse):  # bot khác đang chạy -> không đóng
+        browser.free_profile(d, lambda m: None)
+    assert killed == []
+    monkeypatch.setattr(browser, "_browser_processes",
+                        lambda: [(12, f'msedge.exe --user-data-dir="{d}" --remote-debugging-port=0', False)])
+    browser.free_profile(d, lambda m: None)  # chương trình mở nó đã tắt -> mồ côi -> đóng
+    assert killed and "12" in killed[0]

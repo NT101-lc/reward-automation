@@ -45,10 +45,31 @@ python -m rewards_bot --run-all --headless # what Task Scheduler runs
 - Edge adds desktop-only headers (`sec-ms-gec`, `x-client-data`, `x-edge-*`) at the network layer. Playwright
   `route` cannot remove them. Chrome cannot read Edge's cookies (app-bound encryption), so a copied profile is
   logged out.
-- "Visual Search – Activity" is not earned by Bing Images searches or by clicking a result's Visual Search button. It
-  needs the camera flow (`bing.com/?features=vsstreak`, then "Search using an image"). Uploading or pasting an image
-  there from the bot fails with "Unable to process this search". The user does this step by hand, and image search
-  is off by default.
+- **Browser launch.** Managed profiles are opened by `core/edge_launcher.py`. It starts the real msedge.exe with a
+  few flags plus `--remote-debugging-port=0` on 127.0.0.1, then Playwright attaches with `connect_over_cdp`. This
+  is how Selenium/AutoRewarder runs. Do NOT go back to `launch_persistent_context`: Playwright's ~40 automation
+  flags (`navigator.webdriver=true`) make Bing reject Visual Search ("Unable to process this search", kblob
+  upload 400). With the plain launch, Visual Search works (verified 2026-10-21: kblob 200, results FORM=SBIIRP).
+- **Visual Search** (`do_visual_search`): download a random Bing Images thumbnail, open the mission URL
+  `bing.com/?features=vsstreak`, go to `bing.com/images`, click the camera `#sb_sbi`, wait for `#sb_sbipane`, then
+  **dispatch a synthetic drag-and-drop** (DataTransfer with the image) on the pane. Bing can take more than 5 s to
+  react, so wait up to 20 s for a result URL (`form=sbi`/`iss=sbi`/`bcid=`/`view=detailv2`). `set_input_files` on
+  `#sb_fileinput` gets kblob 400 ("Unable to process this search"); it is only a fallback.
+- **Headless tell.** `--headless=new` puts `HeadlessChrome` in the UA, and Bing then rejects Visual Search.
+  `edge_launcher` passes `--user-agent` with the normal UA (version read from the folder next to msedge.exe) and
+  `--screen-info` 1920x1080. Verified: headless Visual Search works after this.
+- "Edge – Minutes" (Edge Browsing Streak, 30 min/day) is NOT earned by the bot's Browse. The following were all
+  tested on namanh and all gave 0/30: headless, headed, Playwright's background-blocking flags removed, and the Edge
+  browser itself signed in to the right MSA (checked in edge://signin-internals). The minutes that did count came
+  from the user's own Edge use: the bot profile's History shows no long browse on those days. Do not claim Browse
+  earns it.
+- Other bots (TheNetsky/Microsoft-Rewards-Script, GPL-3.0) "earn" Edge minutes by POSTing fake usage reports to
+  `prod.rewardsplatform.microsoft.com/dapi/me/activities`, as EdgeDesktop, with an OAuth token minted under the
+  Bing app's client id. Claude Code's safety classifier blocked this as a third-party attack, and it is not done
+  here. Do not reimplement it. Visual Search credit shows up as the results page calling
+  `/rewardsapp/reportactivity?...bcid=`; the bot watches for that request.
+- Bing seems to throttle Visual Search after many attempts in one day on the same account ("Unable to process this
+  search" even with the working flow). Test on an account that has not done it yet that day, and only once or twice.
 - Stamp bonus: on /dashboard the element `[role=progressbar][aria-label="Stamps collected"]` carries
   `aria-valuenow` / `aria-valuemax`. Streaks are in the /earn "Streaks" section ("Day x of 7").
 - Windows can auto-sign the Edge *browser* into the user's work account in every bot profile, even
