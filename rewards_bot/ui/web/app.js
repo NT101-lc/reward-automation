@@ -7,8 +7,6 @@ const api = () => window.pywebview.api;
 const $ = (s, el = document) => el.querySelector(s);
 const $$ = (s, el = document) => Array.from(el.querySelectorAll(s));
 const esc = (s) => String(s ?? "").replace(/[&<>"']/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]));
-// chỉ hiển thị ảnh https từ bing.com (dữ liệu lấy từ trang web bên ngoài nên không tin tuyệt đối)
-const safeImg = (u) => (/^https:\/\/([a-z0-9-]+\.)*bing\.com\//i.test(u || "") ? u : "");
 const fmt = (n) => (n === null || n === undefined || n === "" ? "—" : Number(n).toLocaleString("en-US"));
 const SERIES = [["pc", "Search PC", "#2a78d6"], ["mobile", "Search Mobile", "#eb6834"], ["offers", "Offers", "#1baf7a"]];
 // bảng màu biểu đồ của giao diện Cyberpunk (cyan / hồng / vàng neon)
@@ -17,9 +15,43 @@ const isCyber = () => document.documentElement.getAttribute("data-skin") === "cy
 const seriesColor = (k) => (isCyber() ? CYBER_COLORS[k] : (SERIES.find((x) => x[0] === k) || [, , "#2a78d6"])[2]);
 const RUN_STATES = ["Đang chạy", "Đang chờ", "Đang làm mới", "Đang đăng nhập", "Đang kiểm tra"];
 const GROUP_ORDER = ["Tìm kiếm", "Daily Set", "Keep earning", "Hoạt động", "Task thêm"];
-const img = (u, cls = "") => (safeImg(u) ? `<img class="${cls}" src="${esc(safeImg(u))}" alt="" loading="lazy">` : "");
+// Icon task: bộ PNG 3D Fluent Emoji (MIT, vendor/fluent-emoji) thay cho ảnh thumbnail lộn xộn của Rewards.
+// Đoán loại task theo tiêu đề, không ra thì theo tên ảnh gốc (id=OMR.food.jpg...), rồi theo nhóm.
+// Luật đầu tiên khớp thắng nên luật cụ thể đặt trước.
+const ICON_RULES = [
+  [/visual|camera|bằng ảnh/, "camera"],
+  [/streak|chuỗi/, "fire"],
+  [/search pc|desktop|máy tính/, "pc"],
+  [/mobile|điện thoại|phone|check-?in/, "mobile"],
+  [/quiz|answer|trả lời|question|trivia|câu đố/, "quiz"],
+  [/poll|vote|bình chọn|this or that/, "poll"],
+  [/food|recipe|burger|cook|pizza|món ăn/, "food"],
+  [/travel|\btrip|flight|reef|island|beach|tokyo|du lịch/, "travel"],
+  [/news|tin tức/, "news"],
+  [/shop|\bdeals?\b|mua sắm/, "shopping"],
+  [/\bgames?\b|xbox/, "game"],
+  [/music|song|âm nhạc/, "music"],
+  [/movie|film|phim/, "movie"],
+  [/weather|thời tiết/, "weather"],
+  [/sport|football|soccer|\bnba\b|\bnfl\b|thể thao/, "sport"],
+  [/\bedge\b|browse|lướt web/, "globe"],
+  [/gift|redeem|quà/, "gift"],
+  [/punch ?card|trophy|level/, "trophy"],
+  [/learn|study|học/, "learn"],
+  [/money|finance|stock|tiền/, "money"],
+  [/pencil|write|viết/, "pencil"],
+  [/autumn|\bfall|leaf/, "leaf"],
+  [/spring|flower|bloom/, "flower"],
+  [/wallpaper|photo|picture/, "picture"],
+  [/bing|search|tìm/, "search"],
+];
+const GROUP_ICONS = { "Tìm kiếm": "search", "Daily Set": "calendar", "Keep earning": "gem", "Hoạt động": "bolt", "Task thêm": "sparkles" };
+const matchIcon = (text) => ICON_RULES.find(([re]) => re.test(String(text || "").toLowerCase()))?.[1];
+const iconName = (t) => matchIcon(t.title) || matchIcon(t.img) || GROUP_ICONS[t.group] || "sparkles";
+const icon = (name, cls = "") => `<img class="tico ${cls}" src="vendor/fluent-emoji/${name}.png" alt="" draggable="false">`;
+const taskIcon = (t, cls = "") => icon(iconName(t), cls);
 
-// ảnh từ Rewards lỗi -> ẩn đi (CSP không cho onerror nội tuyến nên bắt chung ở document)
+// ảnh lỗi -> ẩn đi (CSP không cho onerror nội tuyến nên bắt chung ở document)
 document.addEventListener("error", (e) => { if (e.target.tagName === "IMG") e.target.classList.add("broken"); }, true);
 
 // ===================================================================== khởi động
@@ -210,7 +242,7 @@ function renderStamps(s) {
   $("#stamp-count").textContent = `${done}/${tasks.length} dấu`;
   box.innerHTML = tasks.map((t) => `
     <div class="stamp ${t.done ? "done" : ""}" title="${esc(t.title)} · ${t.done ? "Đã xong" : "Chưa làm"} · +${t.max} điểm">
-      <div class="stamp-wrap"><div class="disc">${img(t.img) || `<span class="fallback">${esc(initials(t.title))}</span>`}</div>
+      <div class="stamp-wrap"><div class="disc">${taskIcon(t)}</div>
       <span class="check"><i class="ti ti-check"></i></span></div>
       <span class="pts">+${t.max}</span>
     </div>`).join("");
@@ -242,7 +274,7 @@ function renderStreak(s) {
       `<span class="sday ${i < day ? "on" : ""} ${i === todayIdx ? "today" : ""}" title="Ngày ${i + 1}">${i < day ? '<i class="ti ti-check"></i>' : i + 1}</span>`).join("");
     const status = r.today_done ? `<span class="badge bg-green-lt">Hôm nay xong</span>`
       : `<span class="badge bg-yellow-lt">Hôm nay chưa${r.today ? " · " + esc(r.today) : ""}</span>`;
-    return `<div class="streak-row">${img(r.img) || `<span class="ico"></span>`}
+    return `<div class="streak-row">${taskIcon(r)}
       <div class="min-w-0"><div class="t text-truncate">${esc(r.title)}</div>
         <div class="sub">Ngày ${r.day}/${n}${r.next ? ` · ngày tới +${r.next} điểm` : ""}</div></div>
       ${status}
@@ -252,12 +284,10 @@ function renderStreak(s) {
 
 function renderMeters(s) {
   const stats = s.stats || {};
-  const icons = s.icons || {};
-  const rows = [["pc", "Search PC", icons["Tìm kiếm"]], ["mobile", "Search Mobile", icons["Mobile"]]];
-  const findImg = (title) => (s.tasks || []).find((t) => t.title === title)?.img;
-  $("#meters").innerHTML = rows.map(([k, label, ic]) => {
+  const rows = [["pc", "Search PC"], ["mobile", "Search Mobile"]];
+  $("#meters").innerHTML = rows.map(([k, label]) => {
     const p = stats[k], m = stats[k + "_max"], color = seriesColor(k);
-    return `<div class="meter">${img(findImg(label) || ic) || `<span class="ico"></span>`}
+    return `<div class="meter">${icon(k)}
       <span class="label">${label}</span><span class="val">${m ? `${p}/${m} điểm` : "chưa có dữ liệu"}</span>
       ${bar(m ? (p / m) * 100 : 0, color)}</div>`;
   }).join("");
@@ -269,14 +299,13 @@ function renderTasks(s) {
   if (!tasks.length) { box.innerHTML = `<p class="empty-note">Chưa có dữ liệu task cho tài khoản này.</p>`; return; }
   const groups = {};
   tasks.forEach((t) => (groups[t.group] ||= []).push(t));
-  const icons = s.icons || {};
   box.innerHTML = Object.keys(groups)
     .sort((a, b) => (GROUP_ORDER.indexOf(a) + 99) % 99 - (GROUP_ORDER.indexOf(b) + 99) % 99)
     .map((g) => {
       const items = groups[g], d = items.filter((t) => t.done).length;
-      return `<div class="tgroup"><h3>${img(icons[g] || items[0]?.img)}${esc(g)}<span class="count">${d}/${items.length} xong</span></h3>
-        ${items.map((t) => `<div class="task">
-            ${img(t.img, "thumb") || `<span class="thumb"></span>`}
+      return `<div class="tgroup"><h3>${icon(GROUP_ICONS[g] || "sparkles")}${esc(g)}<span class="count">${d}/${items.length} xong</span></h3>
+        ${items.map((t) => `<div class="task ${t.done ? "done" : ""}">
+            <span class="thumb">${taskIcon(t)}</span>
             <div class="min-w-0"><div class="t" title="${esc(t.title)}">${esc(t.title)}</div>
               <div class="sub">${t.progress}/${t.max} ${esc(t.unit || "điểm")}${t.bot ? ` <span class="botnote">· ${esc(t.bot)}</span>` : ""}</div>
               ${bar(t.max ? (t.progress / t.max) * 100 : 0, t.done ? "var(--tblr-success)" : "")}</div>
@@ -394,18 +423,16 @@ function renderProfiles() {
 }
 
 function renderToggles() {
-  const ic = st(S.selected).icons || {};
-  const any = (k) => Object.values(S.pstate).map((s) => (s.icons || {})[k]).find(Boolean);
   const items = [
-    ["do_quests", "Daily Set, Keep earning", "Bấm từng thẻ task, làm quiz và poll", ic["Daily Set"] || any("Daily Set"), "ti-cards"],
-    ["do_pc", "Search PC", "Tìm đến khi đủ điểm search máy tính", ic["Tìm kiếm"] || any("Tìm kiếm"), "ti-device-desktop"],
-    ["do_mobile", "Search Mobile", "Giả lập điện thoại, tìm đến khi đủ điểm", ic["Mobile"] || any("Mobile"), "ti-device-mobile"],
-    ["do_visual", "Visual Search", "Tìm bằng 1 ảnh qua nút camera của Bing (mỗi ngày 1 lượt)", ic["Visual Search"] || any("Visual Search"), "ti-camera"],
-    ["do_browse", "Browse", `Lướt web ${S.settings.browse_minutes} phút. Không làm lên Edge – Minutes (mục đó phải tự dùng Edge)`, "", "ti-world"],
-    ["headless", "Chạy ẩn", "Không hiện cửa sổ trình duyệt", "", "ti-eye-off"],
+    ["do_quests", "Daily Set, Keep earning", "Bấm từng thẻ task, làm quiz và poll", "calendar"],
+    ["do_pc", "Search PC", "Tìm đến khi đủ điểm search máy tính", "pc"],
+    ["do_mobile", "Search Mobile", "Giả lập điện thoại, tìm đến khi đủ điểm", "mobile"],
+    ["do_visual", "Visual Search", "Tìm bằng 1 ảnh qua nút camera của Bing (mỗi ngày 1 lượt)", "camera"],
+    ["do_browse", "Browse", `Lướt web ${S.settings.browse_minutes} phút. Không làm lên Edge – Minutes (mục đó phải tự dùng Edge)`, "globe"],
+    ["headless", "Chạy ẩn", "Không hiện cửa sổ trình duyệt", "robot"],
   ];
-  $("#task-toggles").innerHTML = items.map(([k, t, d, im, ti]) => `
-    <label class="list-group-item toggle-item">${img(im) || `<span class="ico"><i class="ti ${ti}"></i></span>`}
+  $("#task-toggles").innerHTML = items.map(([k, t, d, ic]) => `
+    <label class="list-group-item toggle-item"><span class="ico">${icon(ic)}</span>
       <div><div class="tt">${t}</div><div class="td">${d}</div></div>
       <span class="form-check form-switch"><input class="form-check-input" type="checkbox" data-key="${k}" ${S.settings[k] ? "checked" : ""}></span></label>`).join("");
   $$("#task-toggles input").forEach((i) => (i.onchange = () => saveSettings({ [i.dataset.key]: i.checked })));

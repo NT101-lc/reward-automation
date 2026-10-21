@@ -97,6 +97,13 @@ def test_pages_render_without_errors(server):
         assert pg.evaluate("document.documentElement.dataset.bsTheme") == "light"
         pg.click(".theme-switch button[data-theme=dark]")
         assert pg.evaluate("document.documentElement.dataset.bsTheme") == "dark"
+        # icon task là PNG trong vendor/fluent-emoji (không lấy ảnh Bing), tải được và đúng loại
+        icons = pg.evaluate("Array.from(document.querySelectorAll('#task-groups .task .tico'),"
+                            " (i) => [i.getAttribute('src'), i.complete && i.naturalWidth > 0])")
+        assert icons and all(src.startswith("vendor/fluent-emoji/") and ok for src, ok in icons), icons
+        srcs = [src for src, _ in icons]
+        assert srcs[:2] == ["vendor/fluent-emoji/pc.png", "vendor/fluent-emoji/mobile.png"]  # Search PC, Search Mobile
+        assert "vendor/fluent-emoji/camera.png" in srcs  # Visual Search
         pg.click(".theme-switch button[data-theme=cyberpunk]")  # giao diện Cyberpunk: nền tối + lớp riêng
         assert pg.evaluate("[document.documentElement.dataset.bsTheme, document.documentElement.dataset.skin]") == ["dark", "cyberpunk"]
         assert pg.evaluate("getComputedStyle(document.body).fontFamily").lstrip('"').startswith("Bahnschrift")

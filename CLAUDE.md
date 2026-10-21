@@ -27,6 +27,9 @@ python -m rewards_bot --run-all --headless # what Task Scheduler runs
   The CSP allows only `'self'`, so never load anything from a CDN. Theme = `data-bs-theme` on `<html>`, driven by
   the `theme` setting ("system"/"light"/"dark"). Style with `--tblr-*` variables so both themes work.
   `tests/test_ui_smoke.py` renders every page in headless Edge with a mocked API.
+  Task icons are Fluent Emoji 3D PNGs (MIT, `vendor/fluent-emoji/`, 96px), picked in `app.js` by `ICON_RULES`
+  (title first, then Bing image name, then group). The Cyberpunk skin (`cyberpunk.css`, `data-skin="cyberpunk"`) uses
+  Chakra Petch (OFL, `vendor/fonts/`) and the app's own `assets/skyline.svg`.
 - `search/catalog.py`: the query catalog. `search/bank.py` hands out queries without repeats across accounts or
   across `history_days`.
 - `data/` holds login sessions and cookies. It is never committed. Profile dir = `data/profiles/<profile["dir"]>`,
