@@ -13,6 +13,8 @@ POINTS_HISTORY_FILE = DATA_DIR / "points_history.json"  # số liệu điểm th
 DASHBOARD_FILE = DATA_DIR / "dashboard.json"  # điểm + trạng thái task lần cuối, để mở app là thấy ngay
 LOG_DIR = DATA_DIR / "logs"  # nhật ký mỗi ngày 1 file
 LOCK_FILE = DATA_DIR / "app.lock"  # chỉ cho 1 cửa sổ app chạy cùng lúc
+VISUAL_TRIES_FILE = DATA_DIR / "visual_tries.json"  # số lần thử Visual Search mỗi tài khoản trong ngày
+CREDENTIALS_FILE = DATA_DIR / "credentials.json"  # email + mật khẩu đã mã hóa (DPAPI) để tự đăng nhập lại
 
 DEFAULT_SETTINGS = {
     "search_delay_min": 8,

@@ -41,6 +41,8 @@ python -m rewards_bot
 - **Kiểm tra** (tự chẩn đoán, không search): đăng nhập Rewards, Points breakdown, thẻ Daily Set, bing.com có đúng
   tài khoản không (desktop và mobile), profile có bị cửa sổ khác giữ không, proxy. Cũng chạy được bằng
   `python -m rewards_bot --check`.
+- Trang **Lịch sử**: mỗi ngày, mỗi tài khoản một dòng: điểm trong ngày, search PC/Mobile, điểm thẻ & hoạt động, và
+  các việc **còn thiếu** (vd Edge – Minutes 0/30, Mobile App check-in, thẻ chưa được ghi nhận).
 
 ### Cách bot mở trình duyệt
 Ở chế độ **Cửa sổ riêng**, app tự mở Edge như một trình duyệt bình thường (chỉ vài cờ cần thiết, không có cờ tự động hóa,
@@ -56,7 +58,14 @@ trình duyệt, giống cách Selenium làm. Mở bằng cờ tự động hóa 
   đăng nhập): Bing đánh dấu cả phiên là desktop (`_Rwho=u=d`) sau lượt search PC / lần mở bing.com đầu tiên, nếu
   không xóa thì search Mobile bị tính là PC và không được điểm.
 - Thẻ Daily Set / Keep earning được bấm đúng vị trí (kể cả 2 thẻ trùng tên); thẻ nào làm xong mà chưa được ghi
-  nhận sẽ được liệt kê trong nhật ký.
+  nhận thì **làm lại 1 lần**, vẫn chưa được thì liệt kê trong nhật ký.
+- Trang Rewards tải chậm / treo thì **tải lại 1 lần** trước khi báo lỗi.
+- **Profile Edge cố định**: một thư mục tài khoản có thể chứa nhiều profile Edge (Default, Profile 1...), mỗi cái đăng
+  nhập trình duyệt bằng tài khoản khác. Lần mở đầu tiên bot ghim profile đang dùng vào `rewards_bot_profile.txt` trong
+  thư mục đó và từ đó luôn mở đúng profile ấy. **Kiểm tra** báo nếu trong thư mục còn profile khác.
+- **Tự đăng nhập lại** (không bắt buộc): trong hộp **Sửa** tài khoản, nhập email + mật khẩu Microsoft. Khi phiên hết
+  hạn, bot tự điền form đăng nhập rồi chạy tiếp. Nếu Microsoft hỏi mã xác minh, Authenticator hay CAPTCHA, bot
+  **dừng lại** để bạn bấm **Đăng nhập** và tự làm (bot không vượt qua các bước đó).
 - Nhật ký lưu ở `data/logs/<ngày>.log` (giữ 14 ngày) – gửi file này khi cần báo lỗi.
 - Tài khoản có thư mục phiên đăng nhập cố định: đổi tên không phải đăng nhập lại.
 - Số liệu PC/Mobile lấy từ hộp **Points breakdown** trên trang Earn. Lịch sử lưu ở `data/points_history.json`,
@@ -65,9 +74,14 @@ trình duyệt, giống cách Selenium làm. Mở bằng cờ tự động hóa 
 ### Task thêm
 - **Visual Search**: mỗi ngày 1 lượt: lấy ngẫu nhiên 1 ảnh trên Bing Images, bấm nút camera ("Search using an image")
   và tải ảnh đó lên, rồi đọc lại Rewards xem đã được ghi nhận chưa. Bật/tắt ở mục "Việc bot sẽ làm khi chạy".
-- **Browse**: lướt các trang tin tức/kiến thức trong N phút (mặc định 30), cuộn trang và đi theo link nội bộ. Mặc định **tắt**.
-  **Không** làm lên "Edge – Minutes" (Edge Browsing Streak): đã thử chạy ẩn, có cửa sổ, bỏ cờ tự động hóa của Playwright,
-  Edge đăng nhập đúng tài khoản, đều 0 phút. Mục đó chỉ tính khi bạn tự dùng Edge đã đăng nhập tài khoản đó.
+  Bing chặn ("Unable to process this search") khi một tài khoản thử nhiều lần trong ngày, nên bot thử **tối đa 4 lần
+  mỗi ngày** (cộng dồn các lượt chạy, lưu ở `data/visual_tries.json`).
+- **Browse**: lướt các trang tin tức/kiến thức tối đa N phút, cuộn trang và đi theo link nội bộ, nhắm tới
+  "Edge – Minutes" (Edge Browsing Streak). Mặc định **tắt**. Edge tự đo thời gian dùng trình duyệt rồi báo cho Rewards,
+  điều kiện được tính không công khai và lúc được lúc không. Vì vậy Browse **tự đo**: cứ 10 phút đọc lại Edge – Minutes,
+  ghi vào nhật ký `Edge – Minutes: 0 → 12/30 sau 10 phút (chạy ẩn)`, dừng khi đã đủ hoặc khi **20 phút không tăng**,
+  và bỏ qua nếu hôm nay đã đủ hoặc tài khoản không có mục này. Xem nhật ký vài ngày để biết chạy ẩn hay hiện cửa sổ mới
+  được tính.
 - Số lượt và số phút chỉnh trong trang Cài đặt.
 
 ### Câu search
@@ -102,6 +116,9 @@ lặp lại trong N ngày (lưu ở `data/search_history.json`). Muốn thêm c�
   của bạn và SYSTEM đọc được. Thư mục này không bao giờ được commit lên git.
 - **Proxy**: trình duyệt của bot chạy với `--no-proxy-server`, bỏ qua proxy hệ thống và file PAC. Nếu máy đang bật
   proxy, nhật ký sẽ ghi lại để bạn biết. Muốn đi qua proxy (mạng công ty), tắt tùy chọn này trong trang Cài đặt.
+- **Mật khẩu tự đăng nhập** lưu ở `data/credentials.json`, mã hóa bằng Windows DPAPI: chỉ tài khoản Windows này
+  trên máy này giải mã được (copy file sang máy khác là vô dụng), giao diện không bao giờ nhận lại mật khẩu, nhật ký không
+  bao giờ ghi mật khẩu. Không có DPAPI (Linux) thì tính năng tắt, không lưu dạng chữ thường. Xóa tài khoản là xóa luôn.
 - **HTTPS** luôn được kiểm tra chứng chỉ, nên proxy chen giữa dùng chứng chỉ giả sẽ bị chặn.
 - **Giao diện** có Content-Security-Policy: chỉ chạy script của app, chỉ tải ảnh từ bing.com. Dữ liệu lấy từ trang
   Rewards luôn được escape. Mọi giá trị giao diện gửi xuống Python (cài đặt, tên tài khoản, cổng, lệnh) đều được kiểm tra.

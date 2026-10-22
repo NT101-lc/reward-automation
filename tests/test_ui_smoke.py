@@ -57,6 +57,7 @@ def boot_data():
             "2026-10-20": {"available": 3517, "pc": 90, "mobile": 60, "offers": 47},
             "2026-10-21": {"available": 3696, "pc": 90, "mobile": 60, "offers": 29}}},
         "running": [],
+        "credentials": {"supported": True, "emails": {"acc <img src=x onerror=alert(1)>": "me@example.com"}},
     }
 
 
@@ -111,7 +112,26 @@ def test_pages_render_without_errors(server):
         if SHOT:
             pg.set_viewport_size({"width": 1320, "height": 1100})
             pg.screenshot(path=SHOT, full_page=True)
-        for page in ("profiles", "log", "settings", "guide", "dashboard"):
+        # lịch sử: mỗi ngày 1 dòng, cột "Còn thiếu" lấy từ missing (bỏ PC/Mobile vì đã có cột riêng)
+        pg.evaluate("""(() => { const today = new Date().toISOString().slice(0, 10);
+            const h = window.__B.history[Object.keys(window.__B.history)[0]];
+            h[today] = {available: 3700, today: 150, pc: 60, pc_max: 90, mobile: 60, mobile_max: 60, offers: 30,
+                        missing: [{t: "Search PC", g: "Tìm kiếm", p: 60, m: 90}, {t: "Edge – Minutes", g: "Hoạt động", p: 0, m: 30},
+                                  {t: "<img src=x onerror=alert(4)>", g: "Daily Set", p: 0, m: 10}]};
+            S.history = window.__B.history; })()""")
+        pg.evaluate("go('history')")
+        rows = pg.locator("#history-table tbody tr")
+        assert rows.count() >= 1
+        first = rows.first.inner_text()
+        assert "+150" in first and "60/90" in first and "Edge – Minutes 0/30" in first and "Search PC" not in first
+        # tài khoản đã lưu mật khẩu: có nhãn "tự đăng nhập"; hộp sửa hiện email, không bao giờ có mật khẩu
+        pg.evaluate("go('profiles')")
+        assert pg.locator("#profile-table .badge:has-text('tự đăng nhập')").count() == 1
+        pg.click("#profile-table button[data-act=edit]")
+        assert pg.locator("#pd-cred").is_visible() and pg.input_value("#pd-email") == "me@example.com"
+        assert pg.input_value("#pd-pass") == "" and pg.locator("#pd-cred-del-wrap").is_visible()
+        pg.click("#profile-dialog .btn-close")
+        for page in ("profiles", "log", "history", "settings", "guide", "dashboard"):
             pg.evaluate(f"go('{page}')")
             pg.wait_for_timeout(200)
         # nhật ký: mỗi dòng có mức (lỗi / cảnh báo / xong), đếm số lỗi; tên chứa HTML vẫn chỉ là chữ

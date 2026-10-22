@@ -10,9 +10,9 @@ from urllib.parse import quote_plus, urljoin, urlparse
 
 from playwright.sync_api import sync_playwright, BrowserContext, Page, TimeoutError as PWTimeout
 
-from . import edge_launcher, security
+from . import credentials, edge_launcher, security
 from .browser import ProfileInUse, free_profile
-from .config import profile_dir
+from .config import VISUAL_TRIES_FILE, profile_dir, read_json, write_json
 from .rewards_page import (SCRAPE_JS, activity, build_task_rows, empty_state, group_icons, icon, parse_breakdown,
                            parse_page, stats, streak_info)
 from ..search.bank import QueryBank
@@ -41,6 +41,22 @@ BROWSE_SITES = [
 ]
 
 
+_VISUAL_LOCK = threading.Lock()  # nhiều tài khoản chạy song song cùng ghi visual_tries.json
+
+
+def visual_tries(name: str, add: int = 0, path=None) -> int:
+    """Số lần đã thử Visual Search hôm nay của tài khoản (cộng thêm `add`). Chỉ giữ số của ngày hiện tại."""
+    path = path or VISUAL_TRIES_FILE
+    today = time.strftime("%Y-%m-%d")
+    with _VISUAL_LOCK:
+        data = read_json(path, {})
+        day = data.get(today, {}) if isinstance(data, dict) else {}
+        n = int(day.get(name, 0)) + add
+        if add:
+            write_json(path, {today: {**day, name: n}})
+        return n
+
+
 class StopRequested(Exception):
     pass
 
@@ -63,6 +79,7 @@ class RewardsBot:
         self.local: dict = {}    # task do app tự làm: title -> {"progress","max","unit"}
         self._launched = None    # trình duyệt do bot mở (edge_launcher), None ở chế độ gắn vào Edge
         self._browser = None
+        self.now = time.time     # đồng hồ (test thay bằng đồng hồ giả)
 
     # ------------------------------------------------------------ helpers
     def log(self, msg: str) -> None:
@@ -125,7 +142,8 @@ class RewardsBot:
         # mở trình duyệt "thường" (ít cờ, không có cờ tự động hóa của Playwright) rồi gắn vào qua CDP cục bộ;
         # chứng chỉ HTTPS vẫn được kiểm tra như trình duyệt bình thường
         self._launched = edge_launcher.launch(self.s.get("browser_channel", "msedge"), str(d), headless,
-                                              extra=security.browser_args(self.s))
+                                              extra=security.browser_args(self.s),
+                                              profile_directory=edge_launcher.pinned_profile(str(d)))
         try:
             self._browser = p.chromium.connect_over_cdp(self._launched.cdp_url)
         except Exception:
@@ -210,19 +228,31 @@ class RewardsBot:
 
     # ------------------------------------------------------------ đọc trạng thái
     def _load(self, page: Page, url: str, marker: str) -> list:
-        """Mở trang Rewards và đợi nội dung chính hiện ra (theo chữ marker hoặc số điểm trong nút hồ sơ)."""
-        page.goto(url, wait_until="domcontentloaded", timeout=60000)
-        try:
-            page.wait_for_function(
-                """(m) => document.body && (document.body.innerText.toLowerCase().includes(m.toLowerCase())
-                         || !!document.querySelector('button[aria-label="View profile"]'))""",
-                arg=marker, timeout=25000)
-        except PWTimeout:
-            host = urlparse(page.url).netloc
-            if "login" in host or "microsoftonline" in host or page.locator("text=Sign in").count():
-                raise NotLoggedIn()
-            raise RuntimeError(f"Trang {urlparse(url).path} không có mục '{marker}' sau 25 giây "
-                               "(mạng chậm hoặc Rewards đã đổi giao diện)")
+        """Mở trang Rewards và đợi nội dung chính hiện ra (theo chữ marker hoặc số điểm trong nút hồ sơ).
+
+        Trang Rewards thỉnh thoảng tải rất chậm hoặc treo một lần rồi lần sau lại bình thường, nên lỗi hết giờ được
+        thử lại 1 lần trước khi báo lỗi.
+        """
+        for attempt in (1, 2):
+            try:
+                page.goto(url, wait_until="domcontentloaded", timeout=60000)
+                page.wait_for_function(
+                    """(m) => document.body && (document.body.innerText.toLowerCase().includes(m.toLowerCase())
+                             || !!document.querySelector('button[aria-label="View profile"]'))""",
+                    arg=marker, timeout=25000)
+                break
+            except PWTimeout as e:
+                host = urlparse(page.url).netloc
+                if "login" in host or "microsoftonline" in host or page.locator("text=Sign in").count():
+                    raise NotLoggedIn()
+                if attempt == 1:
+                    self.log(f"  trang {urlparse(url).path} tải chậm, thử lại")
+                    self.sleep(3, 6)
+                    continue
+                if "goto" in str(e).lower():
+                    raise RuntimeError(f"Không mở được {url} sau 2 lần (mạng chậm hoặc Rewards đang lỗi)")
+                raise RuntimeError(f"Trang {urlparse(url).path} không có mục '{marker}' sau 2 lần chờ "
+                                   "(mạng chậm hoặc Rewards đã đổi giao diện)")
         self.sleep(1.5, 2.5)
         return page.evaluate(SCRAPE_JS)
 
@@ -365,6 +395,23 @@ class RewardsBot:
                     self.log(f"  lỗi task: {e}")
                 self.sleep(2, 4)
 
+    def retry_missed_cards(self, page: Page) -> None:
+        """Thẻ đã làm mà Rewards chưa ghi nhận (thường do bấm chưa đủ lâu hoặc trang tải chậm) thì làm lại 1 lần."""
+        def missed(st):
+            return [c["title"] for c in st["daily"] + st["more"] if not c["done"]]
+
+        left = missed(self.read_state(page))
+        if not left:
+            return
+        self.log(f"{len(left)} thẻ chưa được Rewards ghi nhận, làm lại 1 lần: " + "; ".join(left))
+        self.sleep(5, 10)
+        self.do_cards(page)
+        left = missed(self.read_state(page))
+        if left:
+            self.log("cảnh báo: các thẻ vẫn chưa được Rewards ghi nhận sau 2 lần làm: " + "; ".join(left))
+        else:
+            self.log("Đã ghi nhận đủ các thẻ sau khi làm lại")
+
     # Điểm Rewards mà bing.com hiển thị ở góc phải header = điểm của tài khoản đang đăng nhập trên bing.com
     BING_POINTS_JS = r"""() => Array.from(document.querySelectorAll('#id_h *, #rewid *, .id_button *'))
         .map(e => e.textContent.trim()).filter(x => /^[\d,]{2,}$/.test(x)).map(x => +x.replace(/,/g, ''))"""
@@ -481,7 +528,8 @@ class RewardsBot:
         """
         ctx.clear_cookies(name=re.compile(r"^(_SS|_EDGE_S|_Rwho)$"), domain=re.compile(r"bing\.com$"))
 
-    VISUAL_MISSION_URL = "https://www.bing.com/?features=vsstreak,vstooltip&form=ML2XES"
+    VISUAL_MAX_TRIES = 4  # số lần thử Visual Search tối đa mỗi tài khoản mỗi ngày
+    VISUAL_MISSION_URL ="https://www.bing.com/?features=vsstreak,vstooltip&form=ML2XES"
     VISUAL_RESULT_MARKERS = ("form=sbi", "iss=sbi", "bcid=", "view=detailv2")
 
     def _pick_visual_image(self, ctx: BrowserContext, page: Page):
@@ -513,6 +561,12 @@ class RewardsBot:
         if row and row["progress"] >= row["max"]:
             self.log("Visual Search: hôm nay đã xong")
             return
+        # Bing chặn Visual Search ("Unable to process this search") khi một tài khoản thử nhiều lần trong ngày,
+        # nên giới hạn số lần thử mỗi ngày (tính cả các lượt chạy trước)
+        if visual_tries(self.name) >= self.VISUAL_MAX_TRIES:
+            self.log(f"Visual Search: hôm nay đã thử {self.VISUAL_MAX_TRIES} lần không được, để mai thử lại "
+                     "(thử nhiều Bing càng chặn)")
+            return
         self.status(progress=title)
         self.set_local(title, 0, 1, "lượt")
         for attempt in (1, 2):  # lượt 2 dùng ảnh khác (Bing ghi nhận theo nội dung ảnh)
@@ -520,11 +574,24 @@ class RewardsBot:
             if not image:
                 self.log("cảnh báo: Visual Search: không lấy được ảnh nào từ Bing Images, bỏ qua")
                 return
+            visual_tries(self.name, add=1)
             if self._visual_upload(ctx, page, *image):
                 return
-            if attempt == 1:
+            if attempt == 1 and visual_tries(self.name) < self.VISUAL_MAX_TRIES:
                 self.log("  Visual Search: thử lại với ảnh khác")
                 self.sleep(5, 10)
+            else:
+                break
+        # Bing báo lỗi nhưng đôi khi Rewards vẫn tính lượt đó: đọc lại để báo đúng
+        try:
+            row = activity(self.read_state(page), "visual search")
+        except (StopRequested, NotLoggedIn):
+            raise
+        except Exception:
+            row = None
+        if row and row["progress"] >= row["max"]:
+            self.log("Visual Search: Bing báo lỗi nhưng Rewards vẫn đã ghi nhận")
+            self.set_local(title, 1, 1, "lượt")
 
     # Thả ảnh vào khung upload như kéo-thả thật (cách AutoRewarder dùng). Đưa ảnh qua ô chọn file thì Bing trả 400.
     _DROP_JS = r"""([b64, name, mime]) => {
@@ -614,11 +681,46 @@ class RewardsBot:
             self.log("cảnh báo: Visual Search đã chạy nhưng Rewards chưa ghi nhận (có thể cập nhật trễ, bấm Làm mới sau)")
         return True
 
+    EDGE_CHECK_EVERY = 10  # phút: bao lâu đọc lại "Edge – Minutes" trên Rewards một lần
+    EDGE_GIVE_UP = 20      # phút: "Edge – Minutes" không tăng sau từng này phút thì dừng Browse
+
+    def _edge_minutes(self, ctx: BrowserContext):
+        """Dòng "Edge – Minutes" mới nhất trên Rewards (đọc ở tab riêng để không cắt trang đang lướt); None nếu lỗi."""
+        tab = ctx.new_page()
+        try:
+            return activity(self.read_state(tab), "edge")
+        except (StopRequested, NotLoggedIn):
+            raise
+        except Exception as e:
+            self.log(f"  không đọc được Edge – Minutes: {e}")
+            return None
+        finally:
+            try:
+                tab.close()
+            except Exception:
+                pass
+
     def do_browse(self, page: Page, minutes: int) -> None:
+        """Lướt web cho "Edge – Minutes", vừa lướt vừa đo xem Rewards có tính phút không.
+
+        Edge tự đo thời gian dùng trình duyệt rồi báo cho Rewards; điều kiện để được tính không công khai. Vì vậy mỗi
+        lượt Browse ghi lại phút trước/sau kèm chế độ chạy (ẩn / hiện cửa sổ) để so sánh, và dừng sớm khi đã đủ
+        hoặc khi phút không tăng (lướt tiếp cũng vô ích).
+        """
         title = "Browse"
+        mode = "chạy ẩn" if self.s.get("headless") else "hiện cửa sổ"
+        row = activity(self.state, "edge")
+        if row is None:
+            self.log(f"{title}: tài khoản này không có mục Edge – Minutes trên Rewards, bỏ qua")
+            return
+        if row["progress"] >= row["max"]:
+            self.log(f"{title}: Edge – Minutes hôm nay đã đủ {row['progress']}/{row['max']}, bỏ qua")
+            return
+        first = best = row["progress"]
         total = minutes * 60
-        start = time.time()
-        self.log(f"{title}: lướt web trong {minutes} phút")
+        start = last_gain = self.now()
+        next_check = start + self.EDGE_CHECK_EVERY * 60
+        self.log(f"{title}: lướt web tối đa {minutes} phút ({mode}), Edge – Minutes đang {first}/{row['max']}")
         self.set_local(title, 0, minutes, "phút")
         blocked: set = set()  # trang không kết nối được (vd mạng chặn bằng DNS) -> bỏ qua trong lượt này
 
@@ -626,8 +728,31 @@ class RewardsBot:
             ok = [u for u in BROWSE_SITES if urlparse(u).netloc not in blocked]
             return random.choice(ok or BROWSE_SITES)
 
+        def measure() -> bool:
+            """Đọc lại Edge – Minutes; True = nên dừng (đã đủ hoặc không tăng quá lâu)."""
+            nonlocal best, last_gain
+            r = self._edge_minutes(page.context)
+            if not r:
+                return False
+            mins = int((self.now() - start) // 60)
+            self.log(f"  Edge – Minutes: {first} → {r['progress']}/{r['max']} sau {mins} phút ({mode})")
+            if r["progress"] > best:
+                best, last_gain = r["progress"], self.now()
+            if r["progress"] >= r["max"]:
+                self.log(f"{title}: Edge – Minutes đã đủ, dừng")
+                return True
+            if self.now() - last_gain >= self.EDGE_GIVE_UP * 60:
+                self.log(f"cảnh báo: {title}: Edge – Minutes không tăng sau {int((self.now() - last_gain) // 60)} phút "
+                         f"({mode}). Edge không tính phút cho lượt này, dừng để khỏi lướt vô ích")
+                return True
+            return False
+
         url = pick_site()
-        while (elapsed := time.time() - start) < total:
+        while (elapsed := self.now() - start) < total:
+            if self.now() >= next_check:
+                next_check = self.now() + self.EDGE_CHECK_EVERY * 60
+                if measure():
+                    break
             self.check_stop()
             self.status(progress=f"Browse {int(elapsed // 60)}/{minutes} phút")
             try:
@@ -635,7 +760,7 @@ class RewardsBot:
                 for _ in range(random.randint(3, 6)):
                     page.mouse.wheel(0, random.randint(250, 700))
                     self.sleep(4, 12)
-                    if time.time() - start >= total:
+                    if self.now() - start >= total:
                         break
                 links = page.evaluate(
                     "() => Array.from(document.querySelectorAll('a[href]')).map(a => a.href)"
@@ -657,9 +782,13 @@ class RewardsBot:
                     self.log(f"  lỗi browse: {e}")
                 url = pick_site()
                 self.sleep(2, 4)
-            self.set_local(title, min(minutes, int((time.time() - start) // 60)), minutes, "phút")
-        self.set_local(title, minutes, minutes, "phút")
-        self.log(f"{title}: xong {minutes} phút")
+            self.set_local(title, min(minutes, int((self.now() - start) // 60)), minutes, "phút")
+        else:  # hết thời gian mà chưa dừng sớm: đo lần cuối để nhật ký có số trước/sau
+            measure()
+        used = min(minutes, int((self.now() - start) // 60))
+        self.set_local(title, used, minutes, "phút")
+        self.log(f"{title}: xong sau {used} phút ({mode}), Edge – Minutes {first} → {best}/{row['max']}"
+                 + ("" if best > first else ". Không tăng: Rewards không tính phút cho lượt này"))
 
     # ------------------------------------------------------------ entry points
     def _session(self, work, headless: bool, label: str) -> None:
@@ -674,7 +803,12 @@ class RewardsBot:
                     else:
                         page = ctx.new_page()
                         own.append(page)
-                    work(ctx, page, own)
+                    try:
+                        work(ctx, page, own)
+                    except NotLoggedIn:  # phiên hết hạn: tự đăng nhập lại bằng mật khẩu đã lưu (nếu có) rồi làm lại
+                        if not self.auto_login(page):
+                            raise
+                        work(ctx, page, own)
                 finally:
                     self._close(ctx, own)
         except StopRequested:
@@ -689,6 +823,82 @@ class RewardsBot:
         except Exception as e:
             self.status(state="Lỗi", progress=str(e)[:60])
             self.log(f"Lỗi: {e}")
+
+    # ------------------------------------------------------------ tự đăng nhập lại
+    # Microsoft hỏi thêm bước xác minh: bot KHÔNG tự vượt qua, dừng lại để người dùng bấm Đăng nhập và tự làm
+    _VERIFY_RE = re.compile(r"verify your identity|enter code|enter the code|approve sign in|approve the request|"
+                            r"help us protect|unusual activity|prove you're not a robot|solve the puzzle|"
+                            r"security info|we need to verify|check your authenticator", re.I)
+    _WRONG_PW_RE = re.compile(r"password is incorrect|incorrect password|that microsoft account doesn't exist|"
+                              r"account doesn't exist|account has been locked|account is locked", re.I)
+    _SKIP_PROMPTS = ("#acceptButton", "#idSIButton9", "button:has-text('Yes')", "button:has-text('Skip for now')",
+                     "a:has-text('Skip for now')", "button:has-text('Not now')", "#iCancel")
+
+    def auto_login(self, page: Page) -> bool:
+        """Đăng nhập lại bằng email + mật khẩu đã lưu (mã hóa DPAPI). True nếu xong; không lưu mật khẩu thì False."""
+        if self.profile.get("mode") == "cdp":
+            return False
+        cred = credentials.load(self.name)
+        if not cred:
+            return False
+        self.log("Phiên đăng nhập đã hết hạn, đang tự đăng nhập lại bằng mật khẩu đã lưu")
+        self.status(state="Đang đăng nhập", progress="Tự đăng nhập lại")
+        try:
+            why = self._sign_in(page, *cred)
+        except (StopRequested, NotLoggedIn):
+            raise
+        except Exception as e:  # không ghi chi tiết lỗi Playwright: có thể chứa giá trị đã điền
+            why = f"trang đăng nhập không như mong đợi ({type(e).__name__})"
+        if why:
+            self.log(f"Lỗi: tự đăng nhập không được: {why}. Bấm Đăng nhập để tự đăng nhập")
+            return False
+        self.log("Đã tự đăng nhập lại")
+        return True
+
+    def _sign_in(self, page: Page, email: str, password: str) -> str:
+        """Điền form đăng nhập Microsoft. Trả về "" nếu xong, hoặc lý do không xong."""
+        page.goto(DASHBOARD_URL, wait_until="domcontentloaded", timeout=60000)
+        self.sleep(3, 5)
+        if "rewards.bing.com" in urlparse(page.url).netloc:  # trang Rewards chưa đăng nhập: bấm "Sign in"
+            self._click(page, "a:has-text('Sign in'), button:has-text('Sign in')", 10000)
+            self.sleep(3, 5)
+        box = page.locator("input[type=email], input[name=loginfmt]").first
+        box.wait_for(state="visible", timeout=20000)
+        box.fill(email)
+        page.keyboard.press("Enter")
+        typed_password = False
+        for _ in range(12):
+            self.sleep(3, 5)
+            host = urlparse(page.url).netloc
+            if "rewards.bing.com" in host and page.locator('button[aria-label="View profile"]').count():
+                return ""
+            text = page.locator("body").inner_text(timeout=10000)
+            if self._WRONG_PW_RE.search(text):
+                return "Microsoft báo sai email/mật khẩu hoặc tài khoản bị khóa (sửa mật khẩu đã lưu)"
+            if self._VERIFY_RE.search(text) or page.locator("#enforcementFrame, iframe[title*='challenge' i]").count():
+                return "Microsoft yêu cầu xác minh thêm (mã, Authenticator hoặc CAPTCHA)"
+            pw = page.locator("input[type=password]:visible")
+            if pw.count() and not typed_password:
+                pw.first.fill(password)
+                page.keyboard.press("Enter")
+                typed_password = True
+                continue
+            if not pw.count() and not typed_password:  # Microsoft mời dùng mã/passkey trước: chọn dùng mật khẩu
+                if self._click(page, "#idA_PWD_SwitchToPassword, a:has-text('Use your password'), "
+                                     "button:has-text('Use your password'), span:has-text('Use your password')"):
+                    continue
+            if "stay signed in" in text.lower() or "skip for now" in text.lower() or "not now" in text.lower():
+                for sel in self._SKIP_PROMPTS:  # "Duy trì đăng nhập?" -> Yes; mời tạo passkey -> Skip
+                    if self._click(page, sel, 2000):
+                        break
+                continue
+            if "rewards.bing.com" in host:
+                break
+        try:
+            self._load(page, DASHBOARD_URL, "Available points")
+            return ""
+        except NotLoggedIn:
+            return "chưa vào được Rewards sau khi đăng nhập"
 
     def login(self) -> None:
         if self.profile.get("mode") == "cdp":
@@ -711,6 +921,24 @@ class RewardsBot:
         self.status(state="Sẵn sàng", progress="")
         self.log("Đã lưu phiên đăng nhập")
 
+    def edge_profile_check(self) -> tuple:
+        """(level, "Profile Edge", chi tiết): bot dùng profile Edge nào trong thư mục, có profile lạ nào khác không."""
+        d = str(profile_dir(self.profile))
+        pinned, all_profiles = edge_launcher.pinned_profile(d), edge_launcher.edge_profiles(d)
+        def who(k):
+            return f"{k} ({all_profiles[k]})" if all_profiles.get(k) else k
+
+        others = [who(k) for k in sorted(all_profiles) if k != pinned]
+        if not others:
+            return "ok", "Profile Edge", f"dùng {who(pinned)}"
+        # đã ghim nên profile khác trong thư mục (vd Windows tự đăng nhập Edge bằng tài khoản công ty) không ảnh hưởng;
+        # chỉ cảnh báo khi profile đang ghim chưa đăng nhập trình duyệt mà profile khác lại có
+        if all_profiles.get(pinned) or not any(all_profiles.values()):
+            return "ok", "Profile Edge", f"luôn dùng {who(pinned)}, bỏ qua {', '.join(others)}"
+        return "warn", "Profile Edge", (f"bot luôn dùng {who(pinned)} (chưa đăng nhập trình duyệt), thư mục còn "
+                                        f"{', '.join(others)}. Nếu sai, sửa tên trong {edge_launcher.PIN_FILE} "
+                                        "ở thư mục profile")
+
     def diagnose(self) -> list:
         """Nút Kiểm tra: chạy các bước kiểm tra, KHÔNG search. Trả về [{level, title, detail}]."""
         results = []
@@ -729,6 +957,8 @@ class RewardsBot:
 
         def work(ctx, page, own):
             add("ok", "Mở trình duyệt", "profile không bị chương trình khác giữ")
+            if self.profile.get("mode") != "cdp":
+                add(*self.edge_profile_check())
             try:
                 st = self.read_state(page)
             except NotLoggedIn:
@@ -787,10 +1017,7 @@ class RewardsBot:
 
             if self.s.get("do_quests", True):  # Daily Set + Keep earning
                 self.do_cards(page)
-                st = self.read_state(page)
-                missed = [c["title"] for c in st["daily"] + st["more"] if not c["done"]]
-                if missed:
-                    self.log("cảnh báo: các thẻ chưa được Rewards ghi nhận sau khi làm: " + "; ".join(missed))
+                self.retry_missed_cards(page)
             wants_search = any(self.s.get(k, d) for k, d in (("do_pc", True), ("do_mobile", True), ("do_visual", True)))
             account_ok = self.bing_account_ok(page) if wants_search else True
             if account_ok:
@@ -810,6 +1037,7 @@ class RewardsBot:
                 if self.s.get("do_visual", True):
                     self.do_visual_search(ctx, page)
             if self.s.get("do_browse", False):
+                self.read_state(page)  # số phút Edge mới nhất (có thể đã tăng trong lúc search)
                 self.do_browse(page, int(self.s.get("browse_minutes", 30)))
 
             end = self.read_state(page)["available"] or start

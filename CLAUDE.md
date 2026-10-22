@@ -39,6 +39,12 @@ python -m rewards_bot --run-all --headless # what Task Scheduler runs
   across `history_days`.
 - `data/` holds login sessions and cookies. It is never committed. Profile dir = `data/profiles/<profile["dir"]>`,
   which is fixed at creation and is not the display name (for example account `namanh` uses `namanh_2`).
+  One such folder can hold several Edge profiles (`namanh_2` has `Default` = work account and `Profile 1` = the
+  personal MSA). `edge_launcher.pinned_profile()` pins one into `rewards_bot_profile.txt` on first open and the bot
+  always passes `--profile-directory`. Never drop that, or Edge silently opens whichever profile was used last.
+- `core/credentials.py`: optional auto re-login. Email + DPAPI-encrypted password in `data/credentials.json`, Windows
+  only, never sent to the UI or written to logs. `RewardsBot.auto_login()` runs from `_session()` on `NotLoggedIn` and
+  stops (does not try to pass) at any verification step: code, Authenticator, CAPTCHA.
 
 ## Hard-won facts (verified 2026-10)
 
@@ -66,7 +72,11 @@ python -m rewards_bot --run-all --headless # what Task Scheduler runs
 - **Headless tell.** `--headless=new` puts `HeadlessChrome` in the UA, and Bing then rejects Visual Search.
   `edge_launcher` passes `--user-agent` with the normal UA (version read from the folder next to msedge.exe) and
   `--screen-info` 1920x1080. Verified: headless Visual Search works after this.
-- "Edge – Minutes" (Edge Browsing Streak, 30 min/day) is NOT earned by the bot's Browse. The following were all
+- 2026-10-21 the Edge Browsing Streak did count for namanh (streak day 2), but on 2026-10-22 about 5 h of headless
+  Browse in the same `Profile 1` left Edge – Minutes at 0/30. The cause is unknown. `do_browse` now reads Edge – Minutes
+  every 10 min, logs `first → now (chạy ẩn/hiện cửa sổ)`, and stops when full or after 20 min without gain. Read those
+  log lines before claiming anything about what earns it.
+- Older note: "Edge – Minutes" (Edge Browsing Streak, 30 min/day) was NOT earned by the bot's Browse in early tests. The following were all
   tested on namanh and all gave 0/30: headless, headed, Playwright's background-blocking flags removed, and the Edge
   browser itself signed in to the right MSA (checked in edge://signin-internals). The minutes that did count came
   from the user's own Edge use: the bot profile's History shows no long browse on those days. Do not claim Browse

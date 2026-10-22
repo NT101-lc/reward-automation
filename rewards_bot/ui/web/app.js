@@ -154,6 +154,7 @@ function renderAll() {
   if (S.page === "dashboard") renderDashboard();
   if (S.page === "profiles") renderProfiles();
   if (S.page === "log") renderLog();
+  if (S.page === "history") renderHistory();
   if (S.page === "settings") renderSettings();
   renderLogBadge();
 }
@@ -410,7 +411,7 @@ function renderProfiles() {
       const s = st(p.name), run = S.running.has(p.name);
       return `<tr data-name="${esc(p.name)}">
         <td><span class="avatar avatar-sm rounded-circle ${run ? "run" : ""}">${esc(initials(p.name))}</span></td>
-        <td><b>${esc(p.name)}</b></td>
+        <td><b>${esc(p.name)}</b>${savedEmail(p.name) ? ` <span class="badge bg-green-lt ms-1" title="Đã lưu mật khẩu (mã hóa) cho ${esc(savedEmail(p.name))}: phiên hết hạn thì bot tự đăng nhập lại"><i class="ti ti-key"></i> tự đăng nhập</span>` : ""}</td>
         <td class="text-secondary">${p.mode === "cdp" ? `Edge đang mở · cổng ${p.cdp_port}` : "Cửa sổ riêng"}</td>
         <td>${statePill(p.name)}</td>
         <td class="text-end">${fmt(s.points)}</td>
@@ -466,20 +467,44 @@ async function saveSettings(partial) {
   return r.ok;
 }
 
+// email đã lưu mật khẩu (mã hóa) của tài khoản; giao diện không bao giờ có mật khẩu
+const savedEmail = (name) => (S.credentials?.emails || {})[name] || "";
+
 function bindProfileDialog() {
   const dlg = $("#profile-dialog"), f = $("#profile-form");
-  const syncPort = () => ($("#pd-port").hidden = f.mode.value !== "cdp");
+  const syncPort = () => {
+    $("#pd-port").hidden = f.mode.value !== "cdp";
+    $("#pd-cred").hidden = f.mode.value === "cdp" || !S.credentials?.supported;  // chế độ gắn vào Edge: tự đăng nhập trên Edge đó
+  };
   $$("input[name=mode]", f).forEach((r) => (r.onchange = syncPort));
   f.onsubmit = async (e) => {
     if (e.submitter?.value !== "ok") return;
     e.preventDefault();
-    const r = await api().save_profile(dlg.dataset.old || null,
-      { name: f.name.value, mode: f.mode.value, cdp_port: +f.cdp_port.value });
+    const old = dlg.dataset.old || null, had = old ? savedEmail(old) : "";
+    const email = $("#pd-email").value.trim(), pass = $("#pd-pass").value;
+    if (!$("#pd-cred").hidden && !$("#pd-cred-del").checked && email !== had && (email || had) && !pass) {
+      $("#pd-error").textContent = email ? "Nhập mật khẩu cho email này (hoặc xóa email để không tự đăng nhập)."
+        : "Muốn bỏ tự đăng nhập thì tick \"Xóa mật khẩu đã lưu\".";
+      return;
+    }
+    const r = await api().save_profile(old, { name: f.name.value, mode: f.mode.value, cdp_port: +f.cdp_port.value });
     if (!r.ok) { $("#pd-error").textContent = r.error; return; }
-    if (S.selected === dlg.dataset.old || !S.selected) S.selected = f.name.value.trim();
-    S.profiles = r.profiles; dlg.close(); renderAll();
-    toast(dlg.dataset.old ? "Đã lưu tài khoản" : "Đã thêm tài khoản. Bấm Đăng nhập để đăng nhập lần đầu.");
+    const name = f.name.value.trim();
+    dlg.dataset.old = name;  // tài khoản đã lưu: bấm Lưu lần nữa (sau lỗi mật khẩu) là sửa, không thêm mới
+    if (S.selected === old || !S.selected) S.selected = name;
+    S.profiles = r.profiles;
+    if (!$("#pd-cred").hidden) {
+      let c = null;
+      if ($("#pd-cred-del").checked) c = await api().delete_credentials(name);
+      else if (pass) c = await api().save_credentials(name, email, pass);
+      $("#pd-pass").value = "";  // không giữ mật khẩu trong ô nhập
+      if (c && !c.ok) { $("#pd-error").textContent = c.error; renderAll(); return; }
+      if (c) S.credentials = c.credentials;
+    }
+    dlg.close(); renderAll();
+    toast(old ? "Đã lưu tài khoản" : "Đã thêm tài khoản. Bấm Đăng nhập để đăng nhập lần đầu.");
   };
+  dlg.addEventListener("close", () => ($("#pd-pass").value = ""));
   dlg._sync = syncPort;
 }
 
@@ -490,10 +515,54 @@ function openProfileDialog(p) {
   f.name.value = p ? p.name : `Tài khoản ${S.profiles.length + 1}`;
   f.mode.value = p ? p.mode : "managed";
   f.cdp_port.value = p ? p.cdp_port : 9222 + S.profiles.length;
+  const saved = p ? savedEmail(p.name) : "";
+  $("#pd-email").value = saved;
+  $("#pd-pass").value = "";
+  $("#pd-pass").placeholder = saved ? "Đã lưu (để trống = giữ nguyên)" : "Mật khẩu";
+  $("#pd-cred-del").checked = false;
+  $("#pd-cred-del-wrap").hidden = !saved;
   $("#pd-error").textContent = "";
   dlg._sync(); dlg.showModal(); f.name.select();
 }
 window.openProfileDialog = openProfileDialog; window.go = go;
+
+// ===================================================================== lịch sử
+const WEEKDAYS = ["CN", "T2", "T3", "T4", "T5", "T6", "T7"];
+function renderHistory() {
+  const sel = $("#history-filter"), cur = sel.value || "";
+  sel.innerHTML = `<option value="">Tất cả tài khoản</option>` + S.profiles.map((p) => `<option ${p.name === cur ? "selected" : ""}>${esc(p.name)}</option>`).join("");
+  sel.onchange = renderHistory;
+  const rows = [];
+  for (const [name, days] of Object.entries(S.history || {})) {
+    if (cur && name !== cur) continue;
+    for (const [day, h] of Object.entries(days || {})) rows.push({ name, day, h: h || {} });
+  }
+  rows.sort((a, b) => b.day.localeCompare(a.day) || a.name.localeCompare(b.name));
+  const cutoff = new Date(Date.now() - 30 * 864e5).toISOString().slice(0, 10);
+  const shown = rows.filter((r) => r.day >= cutoff);
+  const tb = $("#history-table tbody");
+  if (!shown.length) {
+    tb.innerHTML = `<tr><td colspan="7" class="empty-note">Chưa có lịch sử. Mỗi lần chạy hoặc làm mới sẽ ghi lại số liệu của ngày đó.</td></tr>`;
+    return;
+  }
+  // ô search: xanh khi đủ, vàng khi thiếu
+  const search = (p, m) => (m ? `<span class="hs ${p >= m ? "full" : "short"}">${fmt(p)}/${fmt(m)}</span>` : `<span class="text-secondary">—</span>`);
+  tb.innerHTML = shown.map(({ name, day, h }) => {
+    const d = new Date(day + "T00:00:00");
+    const miss = (h.missing || []).filter((x) => x.g !== "Tìm kiếm");  // PC/Mobile đã có cột riêng
+    const missCell = h.missing == null ? `<span class="text-secondary">—</span>`
+      : miss.length ? miss.map((x) => `<span class="badge bg-yellow-lt me-1 mb-1" title="${esc(x.g)}">${esc(x.t)}${x.m ? ` ${fmt(x.p ?? 0)}/${fmt(x.m)}` : ""}</span>`).join("")
+      : `<span class="badge bg-green-lt">Đủ hết</span>`;
+    return `<tr>
+      <td class="text-nowrap"><b>${day.slice(8, 10)}/${day.slice(5, 7)}</b> <span class="text-secondary">${WEEKDAYS[d.getDay()]}</span></td>
+      <td><span class="nm-tag tone-${nameTone(name)}">${esc(name)}</span></td>
+      <td class="text-end"><b>${h.today != null ? "+" + fmt(h.today) : "—"}</b></td>
+      <td>${search(h.pc, h.pc_max)}</td>
+      <td>${search(h.mobile, h.mobile_max)}</td>
+      <td class="text-end">${h.offers != null ? "+" + fmt(h.offers) : "—"}</td>
+      <td class="history-miss">${missCell}</td></tr>`;
+  }).join("");
+}
 
 // ===================================================================== nhật ký
 const logFilter = () => $("#log-filter").value;

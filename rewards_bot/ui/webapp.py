@@ -13,7 +13,7 @@ from pathlib import Path
 
 import webview
 
-from ..core import security
+from ..core import credentials, security
 from ..core import config
 from ..core.config import (DATA_DIR, DASHBOARD_FILE, HISTORY_FILE, POINTS_HISTORY_FILE, load_settings, new_profile_dir,
                            read_json, save_settings, write_json)
@@ -56,6 +56,16 @@ def _clean_setting(key, value):
     return value
 
 
+def _missing(tasks: list) -> list:
+    """Các task chưa xong: [{"t": tiêu đề, "g": nhóm, "p": đã làm, "m": cần}] (Daily Set, Keep earning, hoạt động...)."""
+    out = []
+    for r in tasks:
+        if not isinstance(r, dict) or r.get("done") or r.get("group") == "Task thêm":
+            continue
+        out.append({"t": str(r.get("title", ""))[:80], "g": r.get("group", ""), "p": r.get("progress"), "m": r.get("max")})
+    return out
+
+
 def _save(path: Path, data) -> None:
     try:
         write_json(path, data)
@@ -91,7 +101,10 @@ class Api:
             st = self._pstate.setdefault(name, {"state": "Sẵn sàng", "progress": ""})
             st.update(data)
             if data.get("stats") and data["stats"].get("available") is not None:
-                self._history.setdefault(name, {})[time.strftime("%Y-%m-%d")] = data["stats"]
+                day = {**data["stats"]}
+                if isinstance(data.get("tasks"), list):  # việc còn thiếu trong ngày, cho trang Lịch sử
+                    day["missing"] = _missing(data["tasks"])
+                self._history.setdefault(name, {})[time.strftime("%Y-%m-%d")] = day
                 _save(POINTS_HISTORY_FILE, self._history)
             if any(k in data for k in ("tasks", "points", "stats", "check")):
                 keep = ("points", "today", "tasks", "stats", "icons", "streak", "updated", "check", "check_time")
@@ -127,7 +140,29 @@ class Api:
                 "pstate": self._pstate,
                 "history": self._history,
                 "running": list(self._runner.running),
+                "credentials": self._cred_info(),
             }
+
+    @staticmethod
+    def _cred_info() -> dict:
+        """Chỉ cho giao diện biết tài khoản nào đã lưu mật khẩu (kèm email), không bao giờ gửi mật khẩu."""
+        return {"supported": credentials.supported(), "emails": credentials.emails()}
+
+    def save_credentials(self, name, email, password) -> dict:
+        if not isinstance(name, str) or not self._find(name):
+            return {"ok": False, "error": "Không có tài khoản này."}
+        if not credentials.supported():
+            return {"ok": False, "error": "Chỉ lưu được mật khẩu trên Windows (mã hóa DPAPI)."}
+        try:
+            credentials.save(name, str(email or ""), str(password or ""))
+        except (ValueError, OSError) as e:
+            return {"ok": False, "error": str(e)}
+        return {"ok": True, "credentials": self._cred_info()}
+
+    def delete_credentials(self, name) -> dict:
+        if isinstance(name, str):
+            credentials.remove(name)
+        return {"ok": True, "credentials": self._cred_info()}
 
     def save_profile(self, old_name, profile: dict) -> dict:
         if not isinstance(profile, dict):
@@ -158,6 +193,7 @@ class Api:
                         if old_name in store:
                             store[name] = store.pop(old_name)
                     _save(POINTS_HISTORY_FILE, self._history)
+                    credentials.rename(old_name, name)
             else:
                 p["dir"] = new_profile_dir(name, taken=[x.get("dir") for x in self._profiles()])
                 self._profiles().append(p)
@@ -168,6 +204,8 @@ class Api:
         names = [n for n in (names or []) if isinstance(n, str) and not self._runner.is_running(n)]
         self._settings["profiles"] = [p for p in self._profiles() if p["name"] not in names]
         save_settings(self._settings)
+        for n in names:  # xóa tài khoản thì xóa luôn mật khẩu đã lưu
+            credentials.remove(n)
         return {"ok": True, "profiles": self._profiles()}
 
     def start(self, names, action: str = "run") -> dict:

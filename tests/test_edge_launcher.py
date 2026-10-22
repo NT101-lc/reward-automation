@@ -1,3 +1,7 @@
+import json
+
+import pytest
+
 from rewards_bot.core import edge_launcher as el
 
 
@@ -64,3 +68,27 @@ def test_version_and_user_agent_on_linux(monkeypatch):
     assert "Edg/" not in el.normal_user_agent("/usr/bin/google-chrome")
     args = el.build_args("/usr/bin/microsoft-edge-stable", "/d", headless=True)
     assert "--edge-skip-compat-layer-relaunch" not in args  # cờ này chỉ dành cho Edge trên Windows
+
+
+def _local_state(d, last_used, **profiles):
+    info = {k: {"user_name": v} for k, v in profiles.items()}
+    (d / "Local State").write_text(json.dumps({"profile": {"last_used": last_used, "info_cache": info}}), encoding="utf-8")
+
+
+def test_pinned_profile_keeps_first_choice(tmp_path):
+    # thư mục mới chưa có gì: ghim Default
+    assert el.pinned_profile(str(tmp_path / "new")) == "Default"
+    _local_state(tmp_path, "Profile 1", **{"Default": "work@company.com", "Profile 1": "me@gmail.com"})
+    assert el.pinned_profile(str(tmp_path)) == "Profile 1"  # lần đầu: profile dùng gần nhất
+    _local_state(tmp_path, "Default", **{"Default": "work@company.com", "Profile 1": "me@gmail.com"})
+    assert el.pinned_profile(str(tmp_path)) == "Profile 1"  # đã ghim: Edge đổi last_used cũng không đổi theo
+    assert el.edge_profiles(str(tmp_path)) == {"Default": "work@company.com", "Profile 1": "me@gmail.com"}
+
+
+def test_pinned_profile_rejects_bad_names(tmp_path):
+    (tmp_path / el.PIN_FILE).write_text("../../evil", encoding="utf-8")
+    assert el.pinned_profile(str(tmp_path)) == "Default"
+    args = el.build_args("msedge.exe", "d", headless=False, profile_directory="Profile 1")
+    assert "--profile-directory=Profile 1" in args
+    with pytest.raises(ValueError):
+        el.build_args("msedge.exe", "d", headless=False, profile_directory="--remote-debugging-port=9")

@@ -497,3 +497,24 @@
   [data-skin="cyberpunk"] .hero-figure .num, [data-skin="cyberpunk"] .brand-mark, [data-skin="cyberpunk"] .logbox::after { animation: none; }
   [data-skin="cyberpunk"] .btn-primary::after { transition: none; }
 }
+
+/* ---------------------------------------------------------------- lịch sử: số kiểu HUD, nhãn tài khoản vát góc như nhật ký */
+[data-skin="cyberpunk"] .history-table td b, [data-skin="cyberpunk"] .history-table .hs { font-family: var(--cp-display); }
+[data-skin="cyberpunk"] .history-table .hs.full { color: var(--cp-cyan); text-shadow: 0 0 8px rgba(5, 217, 232, .45); }
+[data-skin="cyberpunk"] .history-table .hs.short { color: var(--cp-yellow); }
+[data-skin="cyberpunk"] .history-table tbody tr:hover { background: linear-gradient(90deg, rgba(5, 217, 232, .06), transparent 80%); }
+[data-skin="cyberpunk"] .nm-tag {
+  --tone: var(--cp-cyan);
+  color: var(--tone);
+  border: 1px solid var(--tone);
+  padding: 0 7px;
+  font: 600 11px/1.6 var(--cp-display);
+  letter-spacing: .06em;
+  text-transform: uppercase;
+  background: color-mix(in srgb, var(--tone) 12%, transparent);
+  clip-path: polygon(0 0, calc(100% - 6px) 0, 100% 6px, 100% 100%, 0 100%);
+}
+[data-skin="cyberpunk"] .nm-tag.tone-1 { --tone: var(--cp-yellow); }
+[data-skin="cyberpunk"] .nm-tag.tone-2 { --tone: var(--cp-pink); }
+[data-skin="cyberpunk"] .nm-tag.tone-3 { --tone: #b892ff; }
+[data-skin="cyberpunk"] .nm-tag.tone-4 { --tone: #3dff9a; }

@@ -9,6 +9,7 @@ Cổng debug: --remote-debugging-port=0 để trình duyệt tự chọn cổng 
 DevToolsActivePort trong thư mục profile. Cổng đóng cùng trình duyệt.
 """
 
+import json
 import os
 import re
 import shutil
@@ -116,11 +117,56 @@ def is_edge(exe: str) -> bool:
     return name.startswith("msedge") or "microsoft-edge" in name or name == "microsoft edge"
 
 
-def build_args(exe: str, user_data_dir: str, headless: bool, extra=()) -> list:
+# Một thư mục dữ liệu có thể chứa nhiều profile Edge (Default, Profile 1, ...), mỗi profile đăng nhập trình duyệt
+# bằng một tài khoản khác. Không chỉ định thì Edge mở profile dùng gần nhất, nên bot có thể lặng lẽ chạy sai profile.
+# Bot ghim profile vào file này ở lần mở đầu tiên rồi luôn mở đúng profile đó (--profile-directory).
+PIN_FILE = "rewards_bot_profile.txt"
+_PROFILE_DIR_RE = re.compile(r"^(Default|Profile \d{1,3})$")
+
+
+def edge_profiles(user_data_dir: str) -> dict:
+    """Các profile Edge trong thư mục: {"Profile 1": "email hoặc tên"} (đọc từ file Local State)."""
+    try:
+        info = json.loads((Path(user_data_dir) / "Local State").read_text(encoding="utf-8"))["profile"]
+    except (OSError, ValueError, KeyError, TypeError):
+        return {}
+    cache = info.get("info_cache") or {}
+    return {k: (v.get("user_name") or v.get("name") or "") for k, v in cache.items() if _PROFILE_DIR_RE.match(k)}
+
+
+def _last_used(user_data_dir: str):
+    try:
+        name = json.loads((Path(user_data_dir) / "Local State").read_text(encoding="utf-8"))["profile"]["last_used"]
+    except (OSError, ValueError, KeyError, TypeError):
+        return None
+    return name if isinstance(name, str) and _PROFILE_DIR_RE.match(name) else None
+
+
+def pinned_profile(user_data_dir: str) -> str:
+    """Profile Edge bot luôn dùng trong thư mục này. Lần đầu: ghim profile đang dùng gần nhất (thư mục mới: Default)."""
+    f = Path(user_data_dir) / PIN_FILE
+    try:
+        name = f.read_text(encoding="utf-8").strip()
+    except OSError:
+        name = ""
+    if not _PROFILE_DIR_RE.match(name):
+        name = _last_used(user_data_dir) or "Default"
+        try:
+            f.write_text(name + "\n", encoding="utf-8")
+        except OSError:
+            pass
+    return name
+
+
+def build_args(exe: str, user_data_dir: str, headless: bool, extra=(), profile_directory: str = None) -> list:
     """Dòng lệnh mở trình duyệt: chỉ các cờ cần thiết, không có cờ tự động hóa."""
     args = [exe, f"--user-data-dir={user_data_dir}", BOT_MARKER, "--remote-debugging-address=127.0.0.1",
             "--disable-blink-features=AutomationControlled", "--no-first-run", "--no-default-browser-check",
             "--window-size=1366,900", *extra]
+    if profile_directory:
+        if not _PROFILE_DIR_RE.match(profile_directory):
+            raise ValueError(f"Tên profile Edge không hợp lệ: {profile_directory!r}")
+        args.append(f"--profile-directory={profile_directory}")
     if os.path.basename(exe).lower() == "msedge.exe":  # chỉ Edge trên Windows mới tự mở lại qua lớp tương thích
         args.append("--edge-skip-compat-layer-relaunch")  # để Edge không tự mở lại thành process khác
     if headless:
@@ -169,11 +215,12 @@ class Launched:
                 pass
 
 
-def launch(channel: str, user_data_dir: str, headless: bool, extra=(), timeout: float = 30) -> Launched:
+def launch(channel: str, user_data_dir: str, headless: bool, extra=(), timeout: float = 30,
+           profile_directory: str = None) -> Launched:
     exe = find_browser(channel)
     (Path(user_data_dir) / "DevToolsActivePort").unlink(missing_ok=True)
     flags = getattr(subprocess, "CREATE_NO_WINDOW", 0) if sys.platform == "win32" else 0
-    proc = subprocess.Popen(build_args(exe, user_data_dir, headless, extra), creationflags=flags,
+    proc = subprocess.Popen(build_args(exe, user_data_dir, headless, extra, profile_directory), creationflags=flags,
                             stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
     deadline = time.monotonic() + timeout
     while time.monotonic() < deadline:

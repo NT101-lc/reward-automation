@@ -173,6 +173,19 @@ body { overflow-y: scroll; }
 .logbox .l.warn .msg { color: var(--tblr-warning); }
 .logbox .l.ok .msg { color: var(--tblr-success); }
 
+/* ---------------------------------------------------------------- lịch sử */
+.history-table td { vertical-align: middle; }
+.history-table .hs { font-variant-numeric: tabular-nums; font-weight: 600; }
+.history-table .hs.full { color: var(--tblr-success); }
+.history-table .hs.short { color: var(--tblr-warning); }
+.history-miss { max-width: 420px; }
+.history-miss .badge { white-space: normal; text-align: left; }
+.nm-tag { font-weight: 600; color: var(--tblr-primary); }
+.nm-tag.tone-1 { color: var(--tblr-purple); }
+.nm-tag.tone-2 { color: var(--tblr-teal); }
+.nm-tag.tone-3 { color: var(--tblr-orange); }
+.nm-tag.tone-4 { color: var(--tblr-pink); }
+
 /* ---------------------------------------------------------------- cài đặt & hướng dẫn */
 .settings-grid { display: grid; grid-template-columns: 1fr 190px; gap: 12px 16px; align-items: center; }
 .settings-grid .form-select { grid-column: 2; }

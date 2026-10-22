@@ -1,4 +1,5 @@
 """Logic của bot không cần trình duyệt thật: số lượt search, phát hiện đứng điểm, chọn thẻ, nhận diện profile."""
+import re
 import threading
 from pathlib import Path
 
@@ -141,8 +142,93 @@ def test_local_task_without_matching_activity_gets_own_row():
     assert any(r["title"] == "Browse" and r["group"] == "Task thêm" for r in sent["tasks"])
 
 
+def edge_row(progress, total=30):
+    return {"title": "Edge – Minutes", "key": "edge", "progress": progress, "max": total, "img": ""}
+
+
+class BrowsePage(FakePage):
+    url = "https://www.theverge.com/"
+    context = None
+
+    def evaluate(self, js, *a):
+        return []
+
+
+def browse_bot(minutes_seq, **settings):
+    """Bot với đồng hồ giả (mỗi lần sleep tiến 30 giây) và Edge – Minutes đọc lần lượt từ minutes_seq."""
+    bot, logs = make_bot(**settings)
+    clock = [0.0]
+    bot.now = lambda: clock[0]
+    bot.sleep = lambda *a: clock.__setitem__(0, clock[0] + 30)
+    bot.state = empty_state()
+    bot.state["activity"] = [edge_row(minutes_seq[0])]
+    reads = iter(minutes_seq[1:])
+    bot._edge_minutes = lambda ctx: edge_row(next(reads, minutes_seq[-1]))
+    return bot, logs, clock
+
+
+def test_browse_gives_up_when_edge_minutes_do_not_grow():
+    bot, logs, clock = browse_bot([0, 0, 0, 0, 0], headless=True)
+    bot.do_browse(BrowsePage(), 60)
+    assert clock[0] < 60 * 60  # dừng sớm, không lướt hết 60 phút
+    assert clock[0] >= bot.EDGE_GIVE_UP * 60
+    assert any("không tăng" in m and "chạy ẩn" in m for m in logs)
+    assert logs[-1].startswith("Browse: xong sau") and "0 → 0/30" in logs[-1]
+
+
+def test_browse_stops_when_edge_minutes_full():
+    bot, logs, clock = browse_bot([4, 14, 30], headless=False)
+    bot.do_browse(BrowsePage(), 60)
+    assert any(re.search(r"Edge – Minutes: 4 → 14/30 sau 1\d phút \(hiện cửa sổ\)", m) for m in logs), logs
+    assert any("đã đủ" in m for m in logs)
+    assert "4 → 30/30" in logs[-1] and clock[0] < 25 * 60
+
+
+def test_browse_skips_when_done_or_missing():
+    bot, logs, _ = browse_bot([30])
+    page = BrowsePage()
+    bot.do_browse(page, 30)
+    assert page.visits == [] and "đã đủ 30/30" in logs[-1]
+    bot.state["activity"] = []
+    bot.do_browse(page, 30)
+    assert page.visits == [] and "không có mục Edge – Minutes" in logs[-1]
+
+
+def test_visual_tries_count_per_day(tmp_path):
+    from rewards_bot.core.bot import visual_tries
+    f = tmp_path / "v.json"
+    assert visual_tries("a", path=f) == 0
+    assert visual_tries("a", add=1, path=f) == 1
+    assert visual_tries("a", add=1, path=f) == 2
+    assert visual_tries("b", add=1, path=f) == 1 and visual_tries("a", path=f) == 2
+
+
+def test_visual_search_respects_daily_cap(tmp_path, monkeypatch):
+    from rewards_bot.core import bot as botmod
+    monkeypatch.setattr(botmod, "VISUAL_TRIES_FILE", tmp_path / "v.json")
+    bot, logs = make_bot()
+    bot.state = empty_state()
+    botmod.visual_tries("t", add=bot.VISUAL_MAX_TRIES)
+    bot._pick_visual_image = lambda *a: pytest.fail("không được thử thêm")
+    bot.do_visual_search(None, FakePage())
+    assert "để mai thử lại" in logs[-1]
+
+
+def test_missed_cards_are_retried_once():
+    bot, logs = make_bot()
+    card = {"title": "Los Angeles Sunny October", "points": 10, "done": False}
+    states = iter([{"daily": [card], "more": []}, {"daily": [dict(card, done=True)], "more": []}])
+    bot.read_state = lambda page: next(states)
+    redone = []
+    bot.do_cards = lambda page: redone.append(1)
+    bot.retry_missed_cards(FakePage())
+    assert redone == [1] and logs[-1] == "Đã ghi nhận đủ các thẻ sau khi làm lại"
+
+
 def test_browse_stops_when_browser_closed():
     bot, logs = make_bot()
+    bot.state = empty_state()
+    bot.state["activity"] = [edge_row(0)]
 
     class ClosedPage:
         url = "about:blank"
@@ -189,3 +275,125 @@ def test_unix_process_listing(monkeypatch):
     monkeypatch.setattr(browser.subprocess, "run", lambda *a, **k: R())
     got = {pid: alive for pid, _, alive in browser._unix_browser_processes()}
     assert got == {500: False, 710: True}  # 500 mồ côi (cha là init), 710 có python còn sống; bỏ renderer và bash
+
+
+def test_load_retries_once_on_timeout():
+    from playwright.sync_api import TimeoutError as PWTimeout
+    bot, logs = make_bot()
+
+    class SlowPage(FakePage):
+        url = "https://rewards.bing.com/earn"
+
+        def goto(self, url, **k):
+            super().goto(url)
+            if len(self.visits) == 1:
+                raise PWTimeout("Page.goto: Timeout 60000ms exceeded.")
+
+        def wait_for_function(self, *a, **k):
+            pass
+
+        def locator(self, sel):
+            return type("L", (), {"count": lambda self: 0})()
+
+        def evaluate(self, js):
+            return ["ok"]
+
+    page = SlowPage()
+    assert bot._load(page, "https://rewards.bing.com/earn", "Today's points") == ["ok"]
+    assert len(page.visits) == 2 and any("tải chậm, thử lại" in m for m in logs)
+
+
+class FakeLoginPage:
+    """Trang đăng nhập Microsoft giả: rewards (chưa đăng nhập) -> email -> mật khẩu -> bước cuối -> Rewards."""
+    TEXT = {"out": "Sign in to Microsoft Rewards", "email": "Sign in", "password": "Enter password",
+            "kmsi": "Stay signed in?", "verify": "Verify your identity", "rewards": "Available points"}
+
+    def __init__(self, after_password="kmsi"):
+        self.state, self.after_password, self.typed = "out", after_password, []
+        page = self
+
+        class Keyboard:
+            def press(self, key):
+                page.state = {"email": "password", "password": page.after_password}.get(page.state, page.state)
+
+        class Loc:
+            def __init__(self, sel):
+                self.sel = sel
+                self.first = self
+
+            def count(self):
+                s = page.state
+                return int(("type=email" in self.sel and s == "email") or ("type=password" in self.sel and s == "password")
+                           or ("View profile" in self.sel and s == "rewards"))
+
+            def wait_for(self, **k):
+                assert self.count()
+
+            def fill(self, v):
+                page.typed.append(v)
+
+            def inner_text(self, **k):
+                return page.TEXT[page.state]
+
+            def click(self, **k):
+                if "Sign in" in self.sel and page.state == "out":
+                    page.state = "email"
+                elif "#acceptButton" in self.sel and page.state == "kmsi":
+                    page.state = "rewards"
+                else:
+                    raise RuntimeError("không có nút này")
+
+        self.keyboard, self._loc = Keyboard(), Loc
+
+    @property
+    def url(self):
+        return "https://rewards.bing.com/" if self.state in ("out", "rewards") else "https://login.live.com/"
+
+    def goto(self, url, **k):
+        pass
+
+    def locator(self, sel):
+        return self._loc(sel)
+
+
+def login_bot(monkeypatch, cred=("me@example.com", "pw-123")):
+    from rewards_bot.core import bot as botmod
+    monkeypatch.setattr(botmod.credentials, "load", lambda name: cred)
+    bot, logs = make_bot()
+    bot._load = lambda page, url, marker: [] if page.state == "rewards" else (_ for _ in ()).throw(botmod.NotLoggedIn())
+    return bot, logs
+
+
+def test_auto_login_fills_form_and_accepts_stay_signed_in(monkeypatch):
+    bot, logs = login_bot(monkeypatch)
+    page = FakeLoginPage()
+    assert bot.auto_login(page) is True
+    assert page.typed == ["me@example.com", "pw-123"] and page.state == "rewards"
+    assert not any("pw-123" in m for m in logs)  # mật khẩu không bao giờ vào nhật ký
+
+
+def test_auto_login_stops_at_verification(monkeypatch):
+    bot, logs = login_bot(monkeypatch)
+    page = FakeLoginPage(after_password="verify")
+    assert bot.auto_login(page) is False
+    assert page.typed == ["me@example.com", "pw-123"]  # không điền gì thêm, không cố vượt qua
+    assert "yêu cầu xác minh thêm" in logs[-1] and "Bấm Đăng nhập" in logs[-1]
+
+
+def test_auto_login_without_saved_password_does_nothing(monkeypatch):
+    bot, logs = login_bot(monkeypatch, cred=None)
+    assert bot.auto_login(FakeLoginPage()) is False and logs == []
+
+
+def test_edge_profile_check_ok_when_pinned_profile_signed_in(tmp_path, monkeypatch):
+    import json as _json
+    from rewards_bot.core import bot as botmod, edge_launcher as el
+    monkeypatch.setattr(botmod, "profile_dir", lambda p: tmp_path)
+    info = {"Default": {"user_name": "work@company.com"}, "Profile 1": {"user_name": "me@gmail.com"}}
+    (tmp_path / "Local State").write_text(_json.dumps({"profile": {"last_used": "Profile 1", "info_cache": info}}))
+    bot, _ = make_bot()
+    level, _, detail = bot.edge_profile_check()
+    assert level == "ok" and "Profile 1 (me@gmail.com)" in detail and "Default (work@company.com)" in detail
+    info["Profile 1"]["user_name"] = ""  # profile đang ghim chưa đăng nhập trình duyệt, profile kia có
+    (tmp_path / "Local State").write_text(_json.dumps({"profile": {"last_used": "Profile 1", "info_cache": info}}))
+    assert bot.edge_profile_check()[0] == "warn" and (tmp_path / el.PIN_FILE).read_text().strip() == "Profile 1"

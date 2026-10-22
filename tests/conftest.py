@@ -18,5 +18,6 @@ def data_dir(tmp_path, monkeypatch):
     monkeypatch.setattr(config, "SETTINGS_FILE", d / "settings.json")
     monkeypatch.setattr(config, "LOG_DIR", d / "logs")
     monkeypatch.setattr(config, "LOCK_FILE", d / "app.lock")
+    monkeypatch.setattr(config, "CREDENTIALS_FILE", d / "credentials.json")
     config.LOAD_WARNINGS.clear()
     return d
