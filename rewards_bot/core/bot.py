@@ -741,7 +741,7 @@ class RewardsBot:
             if r["progress"] >= r["max"]:
                 self.log(f"{title}: Edge – Minutes đã đủ, dừng")
                 return True
-            if self.now() - last_gain >= self.EDGE_GIVE_UP * 60:
+            if self.s.get("browse_auto_stop", True) and self.now() - last_gain >= self.EDGE_GIVE_UP * 60:
                 self.log(f"cảnh báo: {title}: Edge – Minutes không tăng sau {int((self.now() - last_gain) // 60)} phút "
                          f"({mode}). Edge không tính phút cho lượt này, dừng để khỏi lướt vô ích")
                 return True

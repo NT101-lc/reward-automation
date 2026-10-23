@@ -84,7 +84,8 @@ python -m rewards_bot --run-all --headless # what Task Scheduler runs
   `--screen-info` 1920x1080. Verified: headless Visual Search works after this.
 - 2026-10-21 the Edge Browsing Streak did count for namanh (streak day 2), but on 2026-10-22 about 5 h of headless
   Browse in the same `Profile 1` left Edge – Minutes at 0/30. The cause is unknown. `do_browse` now reads Edge – Minutes
-  every 10 min, logs `first → now (chạy ẩn/hiện cửa sổ)`, and stops when full or after 20 min without gain. Read those
+  every 10 min, logs `first → now (chạy ẩn/hiện cửa sổ)`, and stops when full or after 20 min without gain
+  (the 20-min stop can be turned off with the `browse_auto_stop` setting). Read those
   log lines before claiming anything about what earns it.
 - Older note: "Edge – Minutes" (Edge Browsing Streak, 30 min/day) was NOT earned by the bot's Browse in early tests. The following were all
   tested on namanh and all gave 0/30: headless, headed, Playwright's background-blocking flags removed, and the Edge

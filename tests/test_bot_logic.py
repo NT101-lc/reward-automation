@@ -421,3 +421,11 @@ def test_run_order_daily_visual_pc_mobile():
     assert [o for o in order if o != "reset"] == ["daily", "visual", "pc", "mobile"]
     i = order.index("mobile")
     assert order[i - 1] == "reset" and order[i + 1] == "reset"  # vẫn xóa phiên Bing trước và sau Mobile
+
+
+def test_browse_keeps_going_when_auto_stop_off():
+    bot, logs, clock = browse_bot([0, 0, 0, 0, 0, 0, 0], headless=True, browse_auto_stop=False)
+    bot.do_browse(BrowsePage(), 45)
+    assert clock[0] >= 45 * 60  # lướt đủ 45 phút dù Edge – Minutes không tăng
+    assert not any("dừng để khỏi lướt vô ích" in m for m in logs)
+    assert "0 → 0/30" in logs[-1]

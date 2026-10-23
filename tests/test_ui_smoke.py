@@ -124,6 +124,10 @@ def test_pages_render_without_errors(server):
         pg.click("#btn-goal")
         assert pg.locator("#goal-dialog").is_visible() and pg.input_value("#gd-points") == "6500"
         pg.click("#goal-dialog .btn-close")
+        # công tắc "Browse tự dừng" nằm trong danh sách việc của bot, mặc định bật
+        pg.evaluate("go('profiles')")
+        assert pg.locator("#task-toggles input[data-key=browse_auto_stop]").count() == 1
+        pg.evaluate("go('dashboard')")
         # bản mới: thanh báo hiện nút tải; sự kiện tải xong đổi sang nút khởi động lại
         pg.evaluate("""(() => { const real = window.pywebview.api;
             window.pywebview.api = new Proxy({}, {get: (_, k) => k === "check_update"

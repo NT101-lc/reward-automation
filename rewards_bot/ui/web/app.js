@@ -563,7 +563,9 @@ function renderToggles() {
     ["do_pc", "Search PC", "Tìm đến khi đủ điểm search máy tính", "pc"],
     ["do_mobile", "Search Mobile", "Giả lập điện thoại, tìm đến khi đủ điểm", "mobile"],
     ["do_visual", "Visual Search", "Tìm bằng 1 ảnh qua nút camera của Bing (mỗi ngày 1 lượt)", "camera"],
-    ["do_browse", "Browse", `Lướt web ${S.settings.browse_minutes} phút. Không làm lên Edge – Minutes (mục đó phải tự dùng Edge)`, "globe"],
+    ["do_browse", "Browse", `Lướt web tối đa ${S.settings.browse_minutes} phút cho Edge – Minutes, đo số phút mỗi 10 phút`, "globe"],
+    ["browse_auto_stop", "Browse tự dừng khi không được tính phút",
+      `Edge – Minutes không tăng sau 20 phút thì dừng Browse. Tắt để luôn lướt đủ ${S.settings.browse_minutes} phút`, "target"],
     ["headless", "Chạy ẩn", "Không hiện cửa sổ trình duyệt", "robot"],
   ];
   $("#task-toggles").innerHTML = items.map(([k, t, d, ic]) => `

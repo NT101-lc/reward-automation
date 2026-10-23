@@ -87,7 +87,8 @@ trình duyệt, giống cách Selenium làm. Mở bằng cờ tự động hóa 
 - **Browse**: lướt các trang tin tức/kiến thức tối đa N phút, cuộn trang và đi theo link nội bộ, nhắm tới
   "Edge – Minutes" (Edge Browsing Streak). Mặc định **tắt**. Edge tự đo thời gian dùng trình duyệt rồi báo cho Rewards,
   điều kiện được tính không công khai và lúc được lúc không. Vì vậy Browse **tự đo**: cứ 10 phút đọc lại Edge – Minutes,
-  ghi vào nhật ký `Edge – Minutes: 0 → 12/30 sau 10 phút (chạy ẩn)`, dừng khi đã đủ hoặc khi **20 phút không tăng**,
+  ghi vào nhật ký `Edge – Minutes: 0 → 12/30 sau 10 phút (chạy ẩn)`, dừng khi đã đủ hoặc khi **20 phút không tăng**
+  (tắt bằng công tắc "Browse tự dừng khi không được tính phút" để luôn lướt đủ N phút),
   và bỏ qua nếu hôm nay đã đủ hoặc tài khoản không có mục này. Xem nhật ký vài ngày để biết chạy ẩn hay hiện cửa sổ mới
   được tính.
 - Số lượt và số phút chỉnh trong trang Cài đặt.

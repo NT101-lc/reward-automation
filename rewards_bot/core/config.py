@@ -38,6 +38,7 @@ DEFAULT_SETTINGS = {
     "theme": "system",  # giao diện: "system" (theo Windows) / "light" / "dark" / "cyberpunk"
     "bypass_proxy": True,  # trình duyệt của bot không đi qua proxy hệ thống
     "browse_minutes": 30,
+    "browse_auto_stop": True,  # Browse tự dừng khi Edge – Minutes không tăng sau 20 phút
     "check_updates": True,  # mở app thì kiểm tra bản mới trên GitHub
     # mục tiêu đổi quà của từng tài khoản: {"tên tài khoản": {"title": "Thẻ quà 5$", "points": 6500}}
     "goals": {},
