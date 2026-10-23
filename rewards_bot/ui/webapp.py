@@ -4,6 +4,7 @@ JS gọi Python qua window.pywebview.api.<hàm>(); Python đẩy sự kiện (lo
 sang JS theo lô mỗi 250ms qua window.onEvents([...]).
 """
 
+import base64
 import json
 import queue
 import sys
@@ -29,12 +30,20 @@ SETTING_SCHEMA = {
     "browse_minutes": (int, 1, 240),
     "headless": (bool,), "do_quests": (bool,), "do_pc": (bool,), "do_mobile": (bool,), "do_visual": (bool,),
     "do_browse": (bool,), "bypass_proxy": (bool,), "check_updates": (bool,),
-    "browse_auto_stop": (bool,),
+    "browse_auto_stop": (bool,), "do_quest_tasks": (bool,),
     "browser_channel": (str, ("msedge", "chrome", "")),
     "theme": (str, ("system", "light", "dark", "cyberpunk")),
+    "language": (str, ("vi", "en")),
 }
 SETTING_KEYS = tuple(SETTING_SCHEMA)
-ACTIONS = {"run", "refresh", "login", "check"}
+ACTIONS = {"run", "refresh", "login", "check", "everything"}
+# "Làm tất cả": chạy như "run" nhưng bật mọi việc, bỏ qua các công tắc (không đổi cài đặt đã lưu)
+EVERYTHING = {"do_quests": True, "do_quest_tasks": True, "do_visual": True, "do_pc": True, "do_mobile": True,
+              "do_browse": True}
+AVATAR_MAX_BYTES = 300 * 1024
+# ảnh đại diện: chỉ nhận PNG / JPEG / WebP (kiểm tra cả byte đầu file, không tin phần khai báo)
+AVATAR_TYPES = {"image/png": (b"\x89PNG\r\n\x1a\n", "png"), "image/jpeg": (b"\xff\xd8\xff", "jpg"),
+                "image/webp": (b"RIFF", "webp")}
 NAME_MAX = 40
 GOAL_TITLE_MAX = 60
 GOAL_POINTS_MAX = 10_000_000
@@ -146,8 +155,48 @@ class Api:
                 "running": list(self._runner.running),
                 "credentials": self._cred_info(),
                 "goals": self._settings.get("goals", {}),
+                "avatars": self._avatars(),
                 "app": self._app_info(),
             }
+
+    # ------------------------------------------------------------ ảnh đại diện
+    def _avatar_files(self, p: dict) -> list:
+        d = config.AVATAR_DIR
+        return [d / f"{p['dir']}.{ext}" for _, ext in AVATAR_TYPES.values()] if p.get("dir") else []
+
+    def _avatars(self) -> dict:
+        """{tên tài khoản: data URL} để hiện ảnh (theo thư mục profile nên đổi tên tài khoản không mất ảnh)."""
+        out = {}
+        for p in self._profiles():
+            for f in self._avatar_files(p):
+                if f.exists():
+                    mime = next(m for m, (_, ext) in AVATAR_TYPES.items() if f.suffix == "." + ext)
+                    out[p["name"]] = f"data:{mime};base64," + base64.b64encode(f.read_bytes()).decode("ascii")
+                    break
+        return out
+
+    def set_avatar(self, name, data_url) -> dict:
+        """Lưu ảnh đại diện (data URL đã được giao diện cắt vuông, thu nhỏ); data_url rỗng = xóa ảnh."""
+        p = self._find(name) if isinstance(name, str) else None
+        if not p or not p.get("dir"):
+            return {"ok": False, "error": "Không có tài khoản này."}
+        for f in self._avatar_files(p):
+            f.unlink(missing_ok=True)
+        if data_url:
+            head, _, b64 = str(data_url).partition(",")
+            mime = head.removeprefix("data:").removesuffix(";base64")
+            if not head.startswith("data:") or not head.endswith(";base64") or mime not in AVATAR_TYPES:
+                return {"ok": False, "error": "Chỉ nhận ảnh PNG, JPEG hoặc WebP."}
+            try:
+                raw = base64.b64decode(b64, validate=True)
+            except ValueError:
+                return {"ok": False, "error": "Ảnh bị hỏng."}
+            magic, ext = AVATAR_TYPES[mime]
+            if len(raw) > AVATAR_MAX_BYTES or not raw.startswith(magic):
+                return {"ok": False, "error": "Ảnh quá lớn hoặc không đúng định dạng."}
+            config.AVATAR_DIR.mkdir(parents=True, exist_ok=True)
+            (config.AVATAR_DIR / f"{p['dir']}.{ext}").write_bytes(raw)
+        return {"ok": True, "avatars": self._avatars()}
 
     # ------------------------------------------------------------ cập nhật
     _TOKEN_KEY = "github_token"
@@ -308,6 +357,10 @@ class Api:
 
     def delete_profiles(self, names: list) -> dict:
         names = [n for n in (names or []) if isinstance(n, str) and not self._runner.is_running(n)]
+        for p in self._profiles():
+            if p["name"] in names:
+                for f in self._avatar_files(p):
+                    f.unlink(missing_ok=True)
         self._settings["profiles"] = [p for p in self._profiles() if p["name"] not in names]
         for n in names:
             self._settings.get("goals", {}).pop(n, None)
@@ -320,7 +373,11 @@ class Api:
         if action not in ACTIONS:
             return {"ok": False, "error": "Lệnh không hợp lệ", "running": list(self._runner.running)}
         profs = self._profiles() if not names else [p for p in map(self._find, names) if p]
-        self._runner.start(profs, dict(self._settings), action=action)
+        settings = dict(self._settings)
+        if action == "everything":
+            settings.update(EVERYTHING)
+            action = "run"
+        self._runner.start(profs, settings, action=action)
         return {"ok": True, "running": list(self._runner.running)}
 
     def stop(self, names=None) -> dict:

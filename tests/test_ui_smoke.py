@@ -60,6 +60,8 @@ def boot_data():
         "credentials": {"supported": True, "emails": {"acc <img src=x onerror=alert(1)>": "me@example.com"}},
         "goals": {"acc <img src=x onerror=alert(1)>": {"title": "<img src=x onerror=alert(5)>", "points": 6500}},
         "app": {"version": "1.2.0", "frozen": True, "has_token": False, "can_store": True},
+        # ảnh 1x1 PNG
+        "avatars": {"acc <img src=x onerror=alert(1)>": "data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mP8z8BQDwAEhQGAhKmMIQAAAABJRU5ErkJggg=="},
     }
 
 
@@ -100,12 +102,21 @@ def test_pages_render_without_errors(server):
         pg.click(".theme-switch button[data-theme=dark]")
         assert pg.evaluate("document.documentElement.dataset.bsTheme") == "dark"
         # icon task là PNG trong vendor/fluent-emoji (không lấy ảnh Bing), tải được và đúng loại
-        icons = pg.evaluate("Array.from(document.querySelectorAll('#task-groups .task .tico'),"
+        icons = pg.evaluate("Array.from(document.querySelectorAll('#task-groups .trow .tico, #meters .tico'),"
                             " (i) => [i.getAttribute('src'), i.complete && i.naturalWidth > 0])")
         assert icons and all(src.startswith("vendor/fluent-emoji/") and ok for src, ok in icons), icons
         srcs = [src for src, _ in icons]
-        assert srcs[:2] == ["vendor/fluent-emoji/pc.png", "vendor/fluent-emoji/mobile.png"]  # Search PC, Search Mobile
+        assert srcs[:2] == ["vendor/fluent-emoji/pc.png", "vendor/fluent-emoji/mobile.png"]  # thanh Search PC, Mobile
         assert "vendor/fluent-emoji/camera.png" in srcs  # Visual Search
+        # Task hôm nay bản gọn: không lặp nhóm Tìm kiếm, việc chưa xong lên trước, bật "Ẩn việc đã xong" thì ẩn
+        groups = pg.locator("#task-groups .tgroup h3 span:first-of-type").all_inner_texts()
+        assert "Tìm kiếm" not in groups and groups[:3] == ["Daily Set", "Keep earning", "Quests"], groups
+        daily = pg.locator("#task-groups .tgroup").first.locator(".trow")
+        assert "done" not in daily.first.get_attribute("class") and "done" in daily.last.get_attribute("class")
+        pg.click("#tasks-hide-done")
+        assert pg.locator("#task-groups .trow.done").count() == 0
+        pg.click("#tasks-hide-done")
+        assert pg.locator("#task-groups .trow.done").count() > 0
         pg.click(".theme-switch button[data-theme=cyberpunk]")  # giao diện Cyberpunk: nền tối + lớp riêng
         assert pg.evaluate("[document.documentElement.dataset.bsTheme, document.documentElement.dataset.skin]") == ["dark", "cyberpunk"]
         assert pg.evaluate("getComputedStyle(document.body).fontFamily").lstrip('"').startswith("Bahnschrift")
@@ -124,9 +135,49 @@ def test_pages_render_without_errors(server):
         pg.click("#btn-goal")
         assert pg.locator("#goal-dialog").is_visible() and pg.input_value("#gd-points") == "6500"
         pg.click("#goal-dialog .btn-close")
-        # công tắc "Browse tự dừng" nằm trong danh sách việc của bot, mặc định bật
+        # số liệu: 4 ô KPI, lịch nhiệt 12 tuần, nguồn điểm; chưa đủ 2 tài khoản thì không hiện "So sánh tài khoản"
+        assert pg.locator("#kpis .kpi").count() == 4
+        assert pg.locator("#heatmap .hm").count() == 84
+        assert not pg.locator("#compare-panel").is_visible()
+        pg.wait_for_function("document.querySelector('#chart-sources .apexcharts-canvas')", timeout=5000)
+        k = pg.evaluate("""computeKpis({
+            "2026-09-14": {today: 100}, "2026-09-24": {today: 500}, "2026-10-13": {today: 999},
+            "2026-10-18": {today: 100, pc: 90, pc_max: 90, mobile: 60, mobile_max: 60},
+            "2026-10-19": {today: 200, pc: 90, pc_max: 90, mobile: 60, mobile_max: 60},
+            "2026-10-20": {today: 300, pc: 90, pc_max: 90, mobile: 60, mobile_max: 60},
+            "2026-10-21": {today: 50, pc: 30, pc_max: 90, mobile: 60, mobile_max: 60}}, "2026-10-21")""")
+        assert k["avg7"] == 200 and k["avgDays"] == 3  # 7 ngày trước hôm nay: 18, 19, 20 (13/10 quá xa)
+        assert k["streak"] == 3  # hôm nay chưa đủ PC: chuỗi tính 18-20
+        assert k["thisMonth"] == 1649 and k["lastMonth"] == 100 and k["change"] == 1549
+        cells = pg.evaluate("heatCells({'2026-10-20': {today: 100}, '2026-10-21': {today: 25}}, '2026-10-21')")
+        assert len(cells) == 84 and cells[-5]["day"] == "2026-10-21" and cells[-5]["level"] == 1  # 21/10/2026 là thứ Tư
+        assert cells[-6]["level"] == 4 and cells[-1]["level"] == -1 and cells[0]["level"] is None
+        # trang Tài khoản: "Tự dừng" là mục con của Browse (khóa khi Browse tắt), có Quests riêng, nút Làm tất cả, avatar
         pg.evaluate("go('profiles')")
-        assert pg.locator("#task-toggles input[data-key=browse_auto_stop]").count() == 1
+        sub = pg.locator("#task-toggles .toggle-sub input[data-key=browse_auto_stop]")
+        assert sub.count() == 1 and sub.is_disabled()  # do_browse đang tắt trong dữ liệu mẫu
+        assert pg.locator("#task-toggles input[data-key=do_quest_tasks]").count() == 1
+        assert pg.locator("#btn-do-everything").is_visible()
+        assert pg.locator("#profile-table .avatar.has-img").count() == 1
+        pg.evaluate("go('dashboard')")
+        assert pg.locator("#hero-avatar.has-img").count() == 1
+        # ngôn ngữ: EN dịch cả chữ vẽ sau (đổi trang), số trong câu giữ nguyên; về VI thì trả lại chữ gốc
+        pg.click(".lang-switch button[data-set-lang=en]")
+        assert pg.evaluate("document.documentElement.lang") == "en"
+        assert pg.locator("#nav [data-page=dashboard]").inner_text().strip() == "Overview"
+        assert "Today's tasks" in pg.locator("#task-groups").locator("xpath=ancestor::div[contains(concat(' ',@class,' '),' card ')][1]").inner_text()
+        pg.evaluate("go('profiles')")
+        assert pg.locator("#btn-do-everything").inner_text().strip() == "Do everything"
+        pg.evaluate("go('guide')")
+        assert pg.locator("#guide-en").is_visible() and not pg.locator("#guide").is_visible()
+        assert pg.evaluate("I18N.tr('Lướt web tối đa 45 phút cho Edge – Minutes, đo số phút mỗi 10 phút')") == \
+            "Browses up to 45 minutes for Edge – Minutes, measuring every 10 minutes"
+        assert pg.evaluate("I18N.tr('Tokyo Glow · Chưa làm · +10 điểm')") == "Tokyo Glow · Not done · +10 points"
+        assert pg.evaluate("I18N.tr('(09-11), trung bình 188/ngày')") == "(09-11), averaging 188/day"
+        pg.click(".lang-switch button[data-set-lang=vi]")
+        assert pg.evaluate("document.documentElement.lang") == "vi"
+        assert pg.locator("#guide").is_visible() and not pg.locator("#guide-en").is_visible()
+        assert pg.locator("#nav [data-page=dashboard]").inner_text().strip() == "Tổng quan"
         pg.evaluate("go('dashboard')")
         # bản mới: thanh báo hiện nút tải; sự kiện tải xong đổi sang nút khởi động lại
         pg.evaluate("""(() => { const real = window.pywebview.api;
@@ -163,13 +214,23 @@ def test_pages_render_without_errors(server):
             pg.wait_for_timeout(200)
         # nhật ký: mỗi dòng có mức (lỗi / cảnh báo / xong), đếm số lỗi; tên chứa HTML vẫn chỉ là chữ
         pg.evaluate("go('log')")
+        assert pg.locator("#logbox .log-empty").is_visible()  # chưa có dòng nào: ô trống có hướng dẫn
         pg.evaluate("window.onEvents(" + json.dumps([
             {"type": "log", "name": "acc <img src=x onerror=alert(3)>", "msg": m, "time": "10:00:00"}
             for m in ("[Kiểm tra] OK – Đăng nhập", "[Kiểm tra] FAIL – Tài khoản trên bing.com", "cảnh báo: chậm",
-                      "lỗi: không mở được profile", "Daily Set chưa xong", "Search PC 3/30")]) + ")")
+                      "lỗi: không mở được profile", "Daily Set chưa xong", "Search PC 3/30",
+                      "Điểm hiện tại: 3417", "  Visual Search: Bing đã tìm bằng ảnh")]) + ")")
         levels = pg.evaluate("Array.from(document.querySelectorAll('#logbox .l'), (l) => l.className.replace('l', '').trim())")
-        assert levels == ["ok", "er", "warn", "er", "", ""], levels
-        assert pg.locator("#log-count").inner_text() == "6 dòng · 2 lỗi"
+        assert levels == ["ok", "er", "warn", "er", "", "", "", ""], levels
+        counts = pg.locator("#log-levels .lvl b").all_inner_texts()
+        assert counts == ["8", "2", "1", "1"], counts  # Tất cả / Lỗi / Cảnh báo / Xong
+        assert pg.locator("#logbox .lsep").count() == 1  # "Điểm hiện tại" mở đầu 1 lượt chạy -> vạch ngăn
+        kinds = pg.evaluate("Array.from(document.querySelectorAll('#logbox .l .lk'), (i) => i.className.split(' ')[1])")
+        assert kinds[0] == "ti-stethoscope" and kinds[4] == "ti-cards" and kinds[-1] == "ti-camera", kinds
+        pg.click("#log-levels .lvl-er")
+        assert pg.locator("#logbox .l").count() == 2 and pg.locator("#logbox .l.er").count() == 2
+        pg.click("#log-levels .lvl-all")
+        assert pg.locator("#logbox .l").count() == 8
         # hộp thoại thêm tài khoản: nền đặc, ô cổng chỉ hiện ở chế độ gắn vào Edge, nút nằm trong khung
         pg.evaluate("go('profiles')"); pg.click("#btn-add")
         assert pg.locator("#profile-dialog").is_visible()

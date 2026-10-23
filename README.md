@@ -42,7 +42,12 @@ python -m rewards_bot
 - **Thẻ đóng dấu hôm nay**: mỗi task có điểm (search PC/Mobile, Daily Set, Keep earning) là một con dấu dùng ảnh
   từ trang Rewards; làm xong thì dấu sáng lên. Bên dưới là tiến độ search PC/Mobile.
 - Biểu đồ điểm mỗi ngày (PC / Mobile / Offers, 14 ngày) và số điểm hiện có (30 ngày); rê chuột để xem số liệu.
-- Danh sách task hôm nay theo nhóm, có icon và trạng thái.
+- **Task hôm nay** gọn: mỗi việc một dòng (icon, tên, nhãn `10/10`), việc chưa xong lên trước, nhóm có vòng tiến độ,
+  công tắc "Ẩn việc đã xong". Search PC/Mobile không lặp lại (đã có thanh tiến độ phía trên).
+- **Số liệu**: 4 ô (hôm nay, trung bình 7 ngày, chuỗi ngày đủ điểm search, tháng này so với cùng kỳ tháng trước),
+  **lịch nhiệt 12 tuần** (độ đều đặn), **nguồn điểm 30 ngày** (PC / Mobile / thẻ), và **so sánh tài khoản** khi có từ 2
+  tài khoản.
+- **Tiếng Việt / English**: nút VI / EN ở thanh bên (hoặc Cài đặt). Dòng nhật ký do bot ghi vẫn là tiếng Việt.
 - **Làm mới** chỉ đọc điểm từ Rewards (chạy ẩn), không làm task.
 - **Mục tiêu đổi quà** (trong khối điểm): đặt món muốn đổi và số điểm cần, app hiện thanh tiến độ và dự kiến số ngày
   còn lại, tính theo trung bình điểm/ngày của 14 ngày gần nhất trong Lịch sử (bỏ hôm nay vì chưa hết ngày).
@@ -80,13 +85,16 @@ trình duyệt, giống cách Selenium làm. Mở bằng cờ tự động hóa 
   dữ liệu lần cuối ở `data/dashboard.json`.
 
 ### Task thêm
+- **Quests**: quest nhiều bước ở trang Earn ("5/6 tasks"), có công tắc riêng, chạy sau Daily Set. Trang quest liệt kê
+  các bước ở mục "Activities"; bước làm được trên trình duyệt có link. Bước khóa sau app Microsoft Rewards trên máy tính
+  hoặc app điện thoại thì bỏ qua (ghi lý do vào nhật ký); bước làm 2 lần không được ghi nhận cũng bỏ qua.
 - **Visual Search**: mỗi ngày 1 lượt: lấy ngẫu nhiên 1 ảnh trên Bing Images, bấm nút camera ("Search using an image")
   và tải ảnh đó lên, rồi đọc lại Rewards xem đã được ghi nhận chưa. Bật/tắt ở mục "Việc bot sẽ làm khi chạy".
   Bing chặn ("Unable to process this search") khi một tài khoản thử nhiều lần trong ngày, nên bot thử **tối đa 4 lần
   mỗi ngày** (cộng dồn các lượt chạy, lưu ở `data/visual_tries.json`).
 - **Browse**: lướt các trang tin tức/kiến thức tối đa N phút, cuộn trang và đi theo link nội bộ, nhắm tới
-  "Edge – Minutes" (Edge Browsing Streak). Mặc định **tắt**. Edge tự đo thời gian dùng trình duyệt rồi báo cho Rewards,
-  điều kiện được tính không công khai và lúc được lúc không. Vì vậy Browse **tự đo**: cứ 10 phút đọc lại Edge – Minutes,
+  "Edge – Minutes" (Edge Browsing Streak). Mặc định **tắt**. Edge tự đo thời gian dùng trình duyệt rồi báo cho Rewards.
+  Làm được, nhưng thường phải **chạy lại 3–4 lượt** trong ngày mới đủ 30/30 (khi đó nên tắt "Tự dừng"). Vì vậy Browse **tự đo**: cứ 10 phút đọc lại Edge – Minutes,
   ghi vào nhật ký `Edge – Minutes: 0 → 12/30 sau 10 phút (chạy ẩn)`, dừng khi đã đủ hoặc khi **20 phút không tăng**
   (tắt bằng công tắc "Browse tự dừng khi không được tính phút" để luôn lướt đủ N phút),
   và bỏ qua nếu hôm nay đã đủ hoặc tài khoản không có mục này. Xem nhật ký vài ngày để biết chạy ẩn hay hiện cửa sổ mới

@@ -399,7 +399,7 @@ def test_edge_profile_check_ok_when_pinned_profile_signed_in(tmp_path, monkeypat
     assert bot.edge_profile_check()[0] == "warn" and (tmp_path / el.PIN_FILE).read_text().strip() == "Profile 1"
 
 
-def test_run_order_daily_visual_pc_mobile():
+def test_run_order_daily_quests_visual_pc_mobile():
     bot, logs = make_bot(do_browse=False)
     order = []
     st = {"available": 100, "daily": [], "more": []}
@@ -412,13 +412,16 @@ def test_run_order_daily_visual_pc_mobile():
     bot.do_cards = lambda page: order.append("daily")
     bot.retry_missed_cards = lambda page: None
     bot.bing_account_ok = lambda page: True
+    bot.do_quest_tasks = lambda page: order.append("quests")
+    st["quests"] = [{"title": "Q", "href": "/earn/quest/x", "progress": 0, "max": 2}]
+    bot.state = st
     bot.do_visual_search = lambda ctx, page: order.append("visual")
     bot.do_searches = lambda page, kind, label, check_page=None: order.append(kind)
     bot.new_bing_session = lambda ctx: order.append("reset")
     bot._emulate_mobile = lambda ctx, page: None
     bot._session = lambda work, headless, label: work(Ctx(), FakePage(), [])
     bot.run()
-    assert [o for o in order if o != "reset"] == ["daily", "visual", "pc", "mobile"]
+    assert [o for o in order if o != "reset"] == ["daily", "quests", "visual", "pc", "mobile"]
     i = order.index("mobile")
     assert order[i - 1] == "reset" and order[i + 1] == "reset"  # vẫn xóa phiên Bing trước và sau Mobile
 
@@ -429,3 +432,34 @@ def test_browse_keeps_going_when_auto_stop_off():
     assert clock[0] >= 45 * 60  # lướt đủ 45 phút dù Edge – Minutes không tăng
     assert not any("dừng để khỏi lướt vô ích" in m for m in logs)
     assert "0 → 0/30" in logs[-1]
+
+
+def test_quest_steps_skip_when_not_recorded():
+    bot, logs = make_bot()
+    bot.state = empty_state()
+    bot.state["quests"] = [{"title": "Halloween", "href": "/earn/quest/h", "progress": 1, "max": 4}]
+    opened = []
+
+    class QuestPage(FakePage):
+        def evaluate(self, js):  # bước kế tiếp luôn là cùng 1 link (Rewards không ghi nhận)
+            return [{"section": "Activities", "tag": "A", "href": "https://www.bing.com/search?q=x", "index": 3,
+                     "lines": ["Search for pumpkins"]}]
+
+    bot._open_card = lambda page, card: opened.append(card["title"])
+    bot.do_quest_tasks(QuestPage())
+    assert opened == ["Search for pumpkins"] * 2  # thử lại 1 lần rồi bỏ qua, không lặp đủ 3 bước
+    assert any("không được ghi nhận, bỏ qua" in m for m in logs)
+
+
+def test_quest_without_pc_step_is_skipped():
+    bot, logs = make_bot()
+    bot.state = empty_state()
+    bot.state["quests"] = [{"title": "App only", "href": "/earn/quest/a", "progress": 0, "max": 3}]
+
+    class AppOnly(FakePage):
+        def evaluate(self, js):
+            return [{"section": "Activities", "tag": "BUTTON", "href": "", "index": -1, "lines": ["Open the app"]}]
+
+    bot._open_card = lambda page, card: pytest.fail("không được bấm")
+    bot.do_quest_tasks(AppOnly())
+    assert "không làm được trên máy tính" in logs[-1]

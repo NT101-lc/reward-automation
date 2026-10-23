@@ -44,6 +44,20 @@ python -m rewards_bot --run-all --headless # what Task Scheduler runs
   traversal or any `RewardsBot/data/` entry. A detached PowerShell script then waits for the app to exit, robocopies
   over the install excluding `data/`, and restarts it. Version = `rewards_bot.__version__`. Pushing tag `v<ver>` runs
   `.github/workflows/release.yml`, and the tag must match `__version__`.
+- Quests (2026-10-23): `rewards_page` parses `/earn/quest/...` cards into `state["quests"]`. A quest page lists steps under
+  `H2: Activities` as `H3` rows; a step that can be done in a browser is a link there (`SCRAPE_JS` section "Activities").
+  Steps locked behind the Microsoft Rewards desktop app have no link ("Install the Desktop Rewards App"), so
+  `do_quest_tasks` skips them. No unfinished browser-doable quest was available on 2026-10-23 to verify a real click.
+- UI language (`language` setting, "vi"/"en"): the UI is written in Vietnamese. `ui/web/i18n.js` (`I18N.apply`) walks
+  text nodes and title/placeholder/aria-label, and a MutationObserver translates anything rendered later. Dictionary
+  keys are the Vietnamese text with whitespace collapsed and every number replaced by `#`; strings that embed user data
+  go in `PATTERNS`; text joined with " · " is translated part by part. Long prose (the Guide page, a few form hints)
+  has a hand-written English copy in `data-lang="en"` blocks instead. Bot log lines (`#logbox .msg`) are never
+  translated. When you add UI text, add its English entry to `I18N`.
+- Accounts page: `do_quest_tasks` (Quests, separate from `do_quests` = Daily Set + Keep earning), `browse_auto_stop`
+  shown as a sub-switch of Browse, and the "Làm tất cả" button = `Api.start(names, "everything")`, which runs with
+  every `do_*` forced on (`webapp.EVERYTHING`) without saving. Avatars: `Api.set_avatar` stores PNG/JPEG/WebP (magic
+  bytes checked, at most 300 KB) as `data/avatars/<profile dir>.<ext>`, so renames keep the photo.
 - Reward goal per account: `settings["goals"]`, set through `Api.set_goal`. It follows profile renames and deletes.
 - `search/catalog.py`: the query catalog. `search/bank.py` hands out queries without repeats across accounts or
   across `history_days`.
@@ -83,7 +97,8 @@ python -m rewards_bot --run-all --headless # what Task Scheduler runs
   `edge_launcher` passes `--user-agent` with the normal UA (version read from the folder next to msedge.exe) and
   `--screen-info` 1920x1080. Verified: headless Visual Search works after this.
 - 2026-10-21 the Edge Browsing Streak did count for namanh (streak day 2), but on 2026-10-22 about 5 h of headless
-  Browse in the same `Profile 1` left Edge – Minutes at 0/30. The cause is unknown. `do_browse` now reads Edge – Minutes
+  Browse in the same `Profile 1` left Edge – Minutes at 0/30. The cause is unknown. The user later reported (2026-10-23)
+  that it does fill when Run is repeated 3–4 times in a day; the guide says so, and suggests turning auto-stop off. `do_browse` now reads Edge – Minutes
   every 10 min, logs `first → now (chạy ẩn/hiện cửa sổ)`, and stops when full or after 20 min without gain
   (the 20-min stop can be turned off with the `browse_auto_stop` setting). Read those
   log lines before claiming anything about what earns it.

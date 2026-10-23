@@ -395,6 +395,47 @@ class RewardsBot:
                     self.log(f"  lỗi task: {e}")
                 self.sleep(2, 4)
 
+    def do_quest_tasks(self, page: Page) -> None:
+        """Quests (nhiều bước, vd "5/6 tasks"): trang quest chỉ hiện bước kế tiếp ở mục 'Activities'.
+
+        Bước không làm được trên máy tính (vd chỉ có trên app điện thoại) hoặc làm 2 lần vẫn không được ghi nhận thì
+        bỏ qua quest đó, để không lặp mãi.
+        """
+        todo = [q for q in self.state.get("quests", []) if q["progress"] < q["max"]]
+        self.log(f"Quests: {len(todo)} quest chưa xong")
+        for q in todo:
+            last, repeats = None, 0
+            for step in range(q["max"] - q["progress"]):
+                self.check_stop()
+                self.status(progress=f"Quest {q['title'][:25]} {q['progress'] + step + 1}/{q['max']}")
+                page.goto(urljoin(REWARDS, q["href"]), wait_until="domcontentloaded", timeout=60000)
+                self.sleep(4, 6)
+                acts = [it for it in page.evaluate(SCRAPE_JS)
+                        if it["section"].lower() == "activities" and it["tag"] == "A" and it["href"].startswith("http")]
+                if not acts:
+                    try:  # quest khóa sau app Rewards trên máy tính (các bước không có link, có ổ khóa)
+                        needs_app = page.locator("text=Desktop Rewards App").count() > 0
+                    except Exception:
+                        needs_app = False
+                    self.log(f"  Quest '{q['title'][:40]}': " + ("các bước còn lại phải mở khóa bằng app Microsoft "
+                                                                  "Rewards trên máy tính, bỏ qua" if needs_app else
+                                                                  "bước tiếp theo không làm được trên máy tính, bỏ qua"))
+                    break
+                act = acts[0]
+                repeats = repeats + 1 if act["href"] == last else 0
+                if repeats >= 2:
+                    self.log(f"  Quest '{q['title'][:40]}': bước này làm 2 lần vẫn không được ghi nhận, bỏ qua")
+                    break
+                last = act["href"]
+                self.log(f"  Quest: {q['title'][:40]} → {act['lines'][0]}")
+                try:
+                    self._open_card(page, {"title": act["lines"][0], "href": act["href"], "index": act["index"]})
+                except (StopRequested, NotLoggedIn):
+                    raise
+                except Exception as e:
+                    self.log(f"  lỗi quest: {e}")
+                self.sleep(3, 6)
+
     def retry_missed_cards(self, page: Page) -> None:
         """Thẻ đã làm mà Rewards chưa ghi nhận (thường do bấm chưa đủ lâu hoặc trang tải chậm) thì làm lại 1 lần."""
         def missed(st):
@@ -1015,10 +1056,13 @@ class RewardsBot:
             self.status(start=start)
             self.log(f"Điểm hiện tại: {start}")
 
-            # thứ tự: Daily Set / Keep earning -> Visual Search -> search PC -> search Mobile -> Browse
+            # thứ tự: Daily Set / Keep earning -> Quests -> Visual Search -> search PC -> search Mobile -> Browse
             if self.s.get("do_quests", True):  # Daily Set + Keep earning
                 self.do_cards(page)
                 self.retry_missed_cards(page)
+            if self.s.get("do_quest_tasks", True) and self.state.get("quests"):  # Quests (riêng)
+                self.do_quest_tasks(page)
+                self.read_state(page)
             wants_search = any(self.s.get(k, d) for k, d in (("do_pc", True), ("do_mobile", True), ("do_visual", True)))
             account_ok = self.bing_account_ok(page) if wants_search else True
             if account_ok:

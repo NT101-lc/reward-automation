@@ -21,6 +21,7 @@ VISUAL_TRIES_FILE = DATA_DIR / "visual_tries.json"  # số lần thử Visual Se
 CREDENTIALS_FILE = DATA_DIR / "credentials.json"  # email + mật khẩu đã mã hóa (DPAPI) để tự đăng nhập lại
 SECRETS_FILE = DATA_DIR / "secrets.json"  # token GitHub (đã mã hóa DPAPI) để kiểm tra bản mới khi repo riêng tư
 UPDATE_DIR = DATA_DIR / "update"  # file cập nhật tải về + script cài
+AVATAR_DIR = DATA_DIR / "avatars"  # ảnh đại diện tài khoản: <thư mục profile>.webp|png|jpg
 
 DEFAULT_SETTINGS = {
     "search_delay_min": 8,
@@ -30,11 +31,13 @@ DEFAULT_SETTINGS = {
     "headless": False,
     "max_parallel": 3,
     "history_days": 30,
-    "do_quests": True,
+    "do_quests": True,  # Daily Set + Keep earning (tên cũ, giữ để không mất cài đặt)
+    "do_quest_tasks": True,  # Quests nhiều bước (mục "Quests" ở trang Earn)
     "do_pc": True,
     "do_mobile": True,
     "do_visual": True,  # Visual Search: tải 1 ảnh lên bằng nút camera của Bing Images
     "do_browse": False,
+    "language": "vi",  # ngôn ngữ giao diện: "vi" / "en" (nhật ký của bot vẫn tiếng Việt)
     "theme": "system",  # giao diện: "system" (theo Windows) / "light" / "dark" / "cyberpunk"
     "bypass_proxy": True,  # trình duyệt của bot không đi qua proxy hệ thống
     "browse_minutes": 30,

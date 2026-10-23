@@ -45,9 +45,13 @@ def test_duplicate_cards_are_numbered(state):
     assert {c["index"] for c in state["more"]} == {20, 21, 22}
 
 
-def test_quests_are_ignored(state):
-    assert "quests" not in state
-    assert all(r["group"] != "Quests" for r in rp.build_task_rows(state))
+def test_quests_parsed_separately(state):
+    assert state["quests"] == [{"title": "A 50-point Halloween treat", "href": "/earn/quest/WW_pcparent_Halloween_punchcard",
+                                "progress": 5, "max": 6, "points": 50, "img": ""}]
+    rows = [r for r in rp.build_task_rows(state) if r["group"] == "Quests"]
+    assert rows == [{"group": "Quests", "title": "A 50-point Halloween treat", "progress": 5, "max": 6, "unit": "bước",
+                     "done": False, "img": ""}]
+    assert all(c["title"] != "A 50-point Halloween treat" for c in state["daily"] + state["more"])  # không lẫn vào Daily Set
 
 
 def test_activity_and_icons(state):

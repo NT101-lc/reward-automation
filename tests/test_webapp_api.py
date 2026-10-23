@@ -126,3 +126,33 @@ def test_update_check_error_is_reported(api, monkeypatch):
         raise W.updater.UpdateError("Không kết nối được GitHub")
     monkeypatch.setattr(W.updater, "latest_release", boom)
     assert api.check_update() == {"ok": False, "error": "Không kết nối được GitHub", "current": W.__version__}
+
+
+def test_avatar_validated_and_follows_profile(api):
+    import base64
+    assert api.save_profile(None, {"name": "a"})["ok"]
+    png = b"\x89PNG\r\n\x1a\n" + b"0" * 100
+    url = "data:image/png;base64," + base64.b64encode(png).decode()
+    r = api.set_avatar("a", url)
+    assert r["ok"] and r["avatars"]["a"] == url
+    assert api.set_avatar("a", "data:image/svg+xml;base64,PHN2Zz4=")["ok"] is False  # SVG có thể chứa script
+    assert api.set_avatar("a", "data:image/png;base64," + base64.b64encode(b"GIF89a").decode())["ok"] is False
+    assert api.set_avatar("a", "data:image/png;base64," + base64.b64encode(b"\x89PNG\r\n\x1a\n" + b"0" * 400_000).decode())["ok"] is False
+    assert api.set_avatar("nope", url)["ok"] is False
+    assert api.set_avatar("a", url)["ok"]
+    assert api.save_profile("a", {"name": "b"})["ok"]  # ảnh theo thư mục profile: đổi tên vẫn còn
+    assert api._avatars() == {"b": url}
+    assert api.set_avatar("b", None)["avatars"] == {}
+    api.set_avatar("b", url)
+    api.delete_profiles(["b"])
+    assert not any(W.config.AVATAR_DIR.glob("*"))
+
+
+def test_everything_turns_on_all_tasks_without_saving(api):
+    seen = {}
+    api._runner.start = lambda profs, settings, action: seen.update(settings=settings, action=action)
+    api._settings.update({"do_browse": False, "do_pc": False, "do_quest_tasks": False})
+    assert api.save_profile(None, {"name": "a"})["ok"]
+    assert api.start(None, "everything")["ok"]
+    assert seen["action"] == "run" and all(seen["settings"][k] for k in W.EVERYTHING)
+    assert api._settings["do_browse"] is False  # cài đặt đã lưu không đổi

@@ -1,7 +1,7 @@
 """Đọc trạng thái từ giao diện Microsoft Rewards mới (rewards.bing.com/dashboard và /earn).
 
 Trang mới không còn API JSON công khai; dữ liệu được lấy từ các thẻ (link/nút) trên trang,
-nhóm theo tiêu đề H2 của từng mục: "Daily set", "Your activity", "Keep earning"...
+nhóm theo tiêu đề H2 của từng mục: "Daily set", "Your activity", "Keep earning", "Quests"...
 """
 
 import re
@@ -97,6 +97,15 @@ def parse_page(items: list, state: dict) -> dict:
                     state["icons"].setdefault(lines[0].lower(), it["img"])
         elif sec == "streaks" and it.get("img"):
             state["icons"].setdefault("streak:" + lines[0].lower(), it["img"])
+        elif href.startswith("/earn/quest/"):  # quest nhiều bước: "Expires in…", tên, "+50", "5/6 tasks"
+            m = re.search(r"(\d+)\s*/\s*(\d+)\s*tasks", text)
+            if m:
+                names = [l for l in lines if not l.lower().startswith("expires") and not _NUM.match(l)
+                         and not re.search(r"\d+\s*/\s*\d+\s*tasks", l)]
+                nums = [_num(l) for l in lines if _NUM.match(l)]
+                state["quests"].append({"title": max(names, key=len, default=lines[0]), "href": href,
+                                        "progress": int(m.group(1)), "max": int(m.group(2)),
+                                        "points": nums[-1] if nums else 0, "img": it.get("img", "")})
     # thẻ trùng tiêu đề + link (vd 2 thẻ "Do you know the answer?") -> đánh số để bấm đúng thẻ thứ n
     for key in ("daily", "more"):
         seen = {}
@@ -147,7 +156,7 @@ def stats(state: dict) -> dict:
 
 
 def empty_state() -> dict:
-    return {"available": None, "today": None, "daily": [], "more": [], "activity": [],
+    return {"available": None, "today": None, "daily": [], "more": [], "activity": [], "quests": [],
             "pc": None, "mobile": None, "offers": None, "icons": {},
             "stamps": None, "daily_streak": None, "streaks": []}
 
@@ -187,6 +196,9 @@ def build_task_rows(state: dict) -> list:
     for c in state.get("more", []):
         rows.append({"group": "Keep earning", "title": c["title"], "progress": c["points"] if c["done"] else 0,
                      "max": c["points"], "done": c["done"], "img": c.get("img", "")})
+    for q in state.get("quests", []):
+        rows.append({"group": "Quests", "title": q["title"], "progress": q["progress"], "max": q["max"],
+                     "unit": "bước", "done": q["progress"] >= q["max"], "img": q.get("img", "")})
     for a in state.get("activity", []):
         unit = "phút" if "minute" in a["title"].lower() else "lượt"
         rows.append({"group": "Hoạt động", "title": a["title"], "progress": a["progress"], "max": a["max"],
