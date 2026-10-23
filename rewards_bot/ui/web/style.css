@@ -314,7 +314,9 @@ pre { background: var(--tblr-bg-surface-secondary); color: var(--tblr-body-color
 #theme-choice .form-selectgroup-item { margin: 0; }
 
 /* icon task (Fluent Emoji 3D, PNG nền trong) */
-.tico { display: block; object-fit: contain; user-select: none; flex: none; }
+.tico { display: inline-grid; place-items: center; user-select: none; flex: none; container-type: size; }
+.tico > img { width: 100%; height: 100%; object-fit: contain; display: block; }
+.tico > i { display: none; font-size: 82cqh; line-height: 1; }
 
 /* ảnh không tải được -> ô trống thay vì biểu tượng ảnh vỡ */
 img.broken { visibility: hidden; }

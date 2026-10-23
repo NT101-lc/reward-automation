@@ -464,7 +464,16 @@ html[lang="en"][data-skin="cyberpunk"] .hero .card-body::before { content: "EDDI
 }
 
 /* ---------------------------------------------------------------- icon task: khung vát neon, icon phát sáng */
-[data-skin="cyberpunk"] .tico { filter: drop-shadow(0 0 6px rgba(5, 217, 232, .35)); }
+/* icon task: icon nét neon thay cho ảnh 3D nhiều màu */
+[data-skin="cyberpunk"] .tico > img { display: none; }
+[data-skin="cyberpunk"] .tico > i { display: block; color: var(--cp-cyan); text-shadow: 0 0 6px rgba(5, 217, 232, .75), 0 0 14px rgba(5, 217, 232, .35); }
+[data-skin="cyberpunk"] .tgroup h3 .tico > i, [data-skin="cyberpunk"] .meter .tico > i { color: var(--cp-yellow);
+  text-shadow: 0 0 6px rgba(252, 238, 10, .7), 0 0 14px rgba(252, 238, 10, .3); }
+[data-skin="cyberpunk"] .trow.done .ticon { filter: none; opacity: .5; }
+[data-skin="cyberpunk"] .trow.done .tico > i { color: var(--cp-dim); text-shadow: none; }
+[data-skin="cyberpunk"] .stamp .disc .tico > i { color: var(--cp-dim); text-shadow: none; }
+[data-skin="cyberpunk"] .stamp.done .disc .tico > i { color: var(--cp-yellow); text-shadow: 0 0 8px rgba(252, 238, 10, .8); }
+[data-skin="cyberpunk"] .streak-row .tico > i { color: var(--cp-pink); text-shadow: 0 0 8px rgba(255, 42, 109, .7); }
 [data-skin="cyberpunk"] .toggle-item .ico {
   border-radius: 0;
   background: linear-gradient(135deg, rgba(5, 217, 232, .16), rgba(123, 47, 247, .14)), #0e1530;
@@ -497,7 +506,7 @@ html[lang="en"][data-skin="cyberpunk"] .hero .card-body::before { content: "EDDI
   background: linear-gradient(135deg, rgba(252, 238, 10, .35), rgba(255, 42, 109, .25)), #0e1530;
   box-shadow: none;
 }
-[data-skin="cyberpunk"] .stamp.done .disc .tico { filter: drop-shadow(0 0 8px rgba(252, 238, 10, .7)); }
+[data-skin="cyberpunk"] .stamp .disc { filter: none; opacity: 1; }
 [data-skin="cyberpunk"] .stamp .check { border-radius: 0; clip-path: polygon(50% 0, 100% 50%, 50% 100%, 0 50%); border: 0; }
 [data-skin="cyberpunk"] .stamp .pts { color: var(--cp-yellow); }
 [data-skin="cyberpunk"] .stamp:not(.done) .pts { color: var(--cp-dim); }

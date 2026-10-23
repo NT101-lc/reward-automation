@@ -49,7 +49,19 @@ const GROUP_ICONS = { "Tìm kiếm": "search", "Daily Set": "calendar", "Keep ea
                       "Task thêm": "sparkles" };
 const matchIcon = (text) => ICON_RULES.find(([re]) => re.test(String(text || "").toLowerCase()))?.[1];
 const iconName = (t) => matchIcon(t.title) || matchIcon(t.img) || GROUP_ICONS[t.group] || "sparkles";
-const icon = (name, cls = "") => `<img class="tico ${cls}" src="vendor/fluent-emoji/${name}.png" alt="" draggable="false">`;
+// Mỗi icon có 2 bản: ảnh 3D Fluent Emoji (theme Sáng / Tối) và icon nét Tabler (theme Cyberpunk: nét neon phát sáng,
+// hợp kiểu HUD hơn ảnh 3D nhiều màu). CSS chỉ hiện 1 bản theo theme.
+const LINE_ICONS = {
+  search: "ti-search", pc: "ti-device-desktop", mobile: "ti-device-mobile", calendar: "ti-calendar-event", gem: "ti-diamond",
+  bolt: "ti-bolt", camera: "ti-camera", quiz: "ti-brain", question: "ti-help-hexagon", poll: "ti-chart-bar",
+  food: "ti-tools-kitchen-2", travel: "ti-plane", globe: "ti-world", news: "ti-news", shopping: "ti-shopping-bag",
+  game: "ti-device-gamepad-2", music: "ti-music", movie: "ti-movie", weather: "ti-sun", sport: "ti-ball-football",
+  check: "ti-circle-check", fire: "ti-flame", trophy: "ti-trophy", gift: "ti-gift", sparkles: "ti-sparkles", learn: "ti-school",
+  money: "ti-coin", pencil: "ti-pencil", picture: "ti-photo", leaf: "ti-leaf", flower: "ti-flower", target: "ti-target-arrow",
+  rocket: "ti-rocket", key: "ti-key", robot: "ti-robot",
+};
+const icon = (name, cls = "") => `<span class="tico ${cls}" data-icon="${name}">`
+  + `<img src="vendor/fluent-emoji/${name}.png" alt="" draggable="false"><i class="ti ${LINE_ICONS[name] || "ti-point"}"></i></span>`;
 const taskIcon = (t, cls = "") => icon(iconName(t), cls);
 
 // ảnh lỗi -> ẩn đi (CSP không cho onerror nội tuyến nên bắt chung ở document)
@@ -462,7 +474,7 @@ function renderTasks(s) {
       }).join("");
       const allDone = hide && d === items.length;
       return `<section class="tgroup ${d === items.length ? "complete" : ""}">
-        <h3>${icon(GROUP_ICONS[g] || "sparkles")}<span>${esc(g)}</span>${ring(items.length ? d / items.length : 0)}<span class="count">${d}/${items.length}</span></h3>
+        <h3>${icon(GROUP_ICONS[g] || "sparkles")}<span class="gname">${esc(g)}</span>${ring(items.length ? d / items.length : 0)}<span class="count">${d}/${items.length}</span></h3>
         ${allDone ? `<p class="tgroup-done"><i class="ti ti-circle-check"></i>Xong hết</p>` : `<ul class="tlist">${rows}</ul>`}
       </section>`;
     }).join("");

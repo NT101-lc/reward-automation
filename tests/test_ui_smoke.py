@@ -102,14 +102,14 @@ def test_pages_render_without_errors(server):
         pg.click(".theme-switch button[data-theme=dark]")
         assert pg.evaluate("document.documentElement.dataset.bsTheme") == "dark"
         # icon task là PNG trong vendor/fluent-emoji (không lấy ảnh Bing), tải được và đúng loại
-        icons = pg.evaluate("Array.from(document.querySelectorAll('#task-groups .trow .tico, #meters .tico'),"
+        icons = pg.evaluate("Array.from(document.querySelectorAll('#task-groups .trow .tico img, #meters .tico img'),"
                             " (i) => [i.getAttribute('src'), i.complete && i.naturalWidth > 0])")
         assert icons and all(src.startswith("vendor/fluent-emoji/") and ok for src, ok in icons), icons
         srcs = [src for src, _ in icons]
         assert srcs[:2] == ["vendor/fluent-emoji/pc.png", "vendor/fluent-emoji/mobile.png"]  # thanh Search PC, Mobile
         assert "vendor/fluent-emoji/camera.png" in srcs  # Visual Search
         # Task hôm nay bản gọn: không lặp nhóm Tìm kiếm, việc chưa xong lên trước, bật "Ẩn việc đã xong" thì ẩn
-        groups = pg.locator("#task-groups .tgroup h3 span:first-of-type").all_inner_texts()
+        groups = pg.locator("#task-groups .tgroup h3 .gname").all_inner_texts()
         assert "Tìm kiếm" not in groups and groups[:3] == ["Daily Set", "Keep earning", "Quests"], groups
         daily = pg.locator("#task-groups .tgroup").first.locator(".trow")
         assert "done" not in daily.first.get_attribute("class") and "done" in daily.last.get_attribute("class")
@@ -118,6 +118,10 @@ def test_pages_render_without_errors(server):
         pg.click("#tasks-hide-done")
         assert pg.locator("#task-groups .trow.done").count() > 0
         pg.click(".theme-switch button[data-theme=cyberpunk]")  # giao diện Cyberpunk: nền tối + lớp riêng
+        # Cyberpunk: icon task là icon nét neon (ẩn ảnh 3D); Sáng / Tối thì ngược lại
+        assert pg.evaluate("getComputedStyle(document.querySelector('#meters .tico img')).display") == "none"
+        assert pg.evaluate("getComputedStyle(document.querySelector('#meters .tico i')).display") == "block"
+        assert pg.evaluate("document.querySelector('#meters .tico i').className") == "ti ti-device-desktop"
         assert pg.evaluate("[document.documentElement.dataset.bsTheme, document.documentElement.dataset.skin]") == ["dark", "cyberpunk"]
         assert pg.evaluate("getComputedStyle(document.body).fontFamily").lstrip('"').startswith("Bahnschrift")
         pg.click(".theme-switch button[data-theme=light]")
