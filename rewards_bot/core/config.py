@@ -1,10 +1,14 @@
 import copy
 import json
 import os
+import sys
 from pathlib import Path
 
-# thư mục gốc dự án (chứa rewards_bot/ và data/)
-BASE_DIR = Path(__file__).resolve().parents[2]
+# FROZEN: đang chạy từ bản đóng gói RewardsBot.exe (PyInstaller)
+FROZEN = bool(getattr(sys, "frozen", False))
+# thư mục gốc: bản mã nguồn = thư mục dự án (chứa rewards_bot/ và data/); bản .exe = thư mục chứa RewardsBot.exe
+# (không dùng thư mục tạm của PyInstaller, nếu không cập nhật/giải nén lại là mất data/)
+BASE_DIR = Path(sys.executable).resolve().parent if FROZEN else Path(__file__).resolve().parents[2]
 DATA_DIR = BASE_DIR / "data"
 PROFILES_DIR = DATA_DIR / "profiles"
 SETTINGS_FILE = DATA_DIR / "settings.json"
@@ -15,6 +19,8 @@ LOG_DIR = DATA_DIR / "logs"  # nhật ký mỗi ngày 1 file
 LOCK_FILE = DATA_DIR / "app.lock"  # chỉ cho 1 cửa sổ app chạy cùng lúc
 VISUAL_TRIES_FILE = DATA_DIR / "visual_tries.json"  # số lần thử Visual Search mỗi tài khoản trong ngày
 CREDENTIALS_FILE = DATA_DIR / "credentials.json"  # email + mật khẩu đã mã hóa (DPAPI) để tự đăng nhập lại
+SECRETS_FILE = DATA_DIR / "secrets.json"  # token GitHub (đã mã hóa DPAPI) để kiểm tra bản mới khi repo riêng tư
+UPDATE_DIR = DATA_DIR / "update"  # file cập nhật tải về + script cài
 
 DEFAULT_SETTINGS = {
     "search_delay_min": 8,
@@ -32,6 +38,9 @@ DEFAULT_SETTINGS = {
     "theme": "system",  # giao diện: "system" (theo Windows) / "light" / "dark" / "cyberpunk"
     "bypass_proxy": True,  # trình duyệt của bot không đi qua proxy hệ thống
     "browse_minutes": 30,
+    "check_updates": True,  # mở app thì kiểm tra bản mới trên GitHub
+    # mục tiêu đổi quà của từng tài khoản: {"tên tài khoản": {"title": "Thẻ quà 5$", "points": 6500}}
+    "goals": {},
     # mode: "managed" = cửa sổ riêng do app mở (data/profiles/<dir>)
     #       "cdp"     = gắn vào trình duyệt đang mở với --remote-debugging-port
     # dir: tên thư mục phiên đăng nhập, cố định từ lúc tạo (đổi tên tài khoản không đổi thư mục)

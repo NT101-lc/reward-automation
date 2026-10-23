@@ -62,7 +62,51 @@ window.addEventListener("pywebviewready", async () => {
   bindStatic();
   applyTheme();
   renderAll();
+  if (S.settings.check_updates !== false) checkUpdate(false);
 });
+
+// ===================================================================== cập nhật
+function showUpdateBar(text, actions = "") {
+  $("#update-text").innerHTML = text;
+  $("#update-actions").innerHTML = actions;
+  $("#update-bar").hidden = false;
+  $("#btn-upd-notes")?.addEventListener("click", () => api().open_releases());
+  $("#btn-upd-get")?.addEventListener("click", downloadUpdate);
+  $("#btn-upd-apply")?.addEventListener("click", applyUpdate);
+}
+// manual = bấm "Kiểm tra ngay": báo cả khi không có bản mới / lỗi; tự kiểm tra lúc mở app thì im lặng
+async function checkUpdate(manual) {
+  const res = $("#update-result");
+  if (manual && res) res.textContent = "Đang kiểm tra...";
+  const r = await api().check_update();
+  const msg = !r.ok ? r.error : r.newer ? `Có bản mới ${r.latest}` : `Đang dùng bản mới nhất (${r.current})`;
+  if (res) res.textContent = msg;
+  if (!r.ok || !r.newer) { if (manual) toast(msg); return; }
+  const notes = `<button type="button" class="btn btn-sm" id="btn-upd-notes">Xem thay đổi</button>`;
+  showUpdateBar(`Có bản mới <b>${esc(r.latest)}</b> (đang dùng ${esc(r.current)})`,
+    r.can_install ? notes + `<button type="button" class="btn btn-sm btn-primary" id="btn-upd-get">Tải và cập nhật</button>`
+      : notes + (S.app?.frozen ? "" : `<span class="small">Bản mã nguồn: cập nhật bằng <code>git pull</code></span>`));
+}
+async function downloadUpdate() {
+  const r = await api().download_update();
+  if (!r.ok) { toast(r.error); return; }
+  showUpdateBar("Đang tải bản cập nhật...");
+}
+async function applyUpdate() {
+  const r = await api().apply_update();
+  if (!r.ok) { toast(r.error); return; }
+  showUpdateBar("Đang cập nhật, app sẽ tự mở lại sau vài giây...");
+}
+function onUpdateEvent(e) {
+  if (e.state === "downloading") {
+    showUpdateBar(`Đang tải bản cập nhật... ${e.total ? Math.round((e.done / e.total) * 100) + "%" : fmt(Math.round(e.done / 1048576)) + " MB"}`);
+  } else if (e.state === "ready") {
+    showUpdateBar(`Đã tải xong bản <b>${esc(e.version)}</b>. Dữ liệu và phiên đăng nhập được giữ nguyên.`,
+      `<button type="button" class="btn btn-sm btn-primary" id="btn-upd-apply">Khởi động lại để cập nhật</button>`);
+  } else if (e.state === "error") {
+    showUpdateBar(`Cập nhật lỗi: ${esc(e.error)}`, `<button type="button" class="btn btn-sm" id="btn-upd-notes">Mở trang tải về</button>`);
+  }
+}
 
 window.onEvents = (batch) => {
   let dirty = false;
@@ -79,6 +123,8 @@ window.onEvents = (batch) => {
       dirty = true;
     } else if (e.type === "done") {
       S.running.delete(e.name); dirty = true;
+    } else if (e.type === "update") {
+      onUpdateEvent(e);
     }
   }
   if (S.logs.length > 4000) S.logs = S.logs.slice(-3000);
@@ -114,6 +160,15 @@ darkQuery.addEventListener("change", () => (S.settings.theme || "system") === "s
 
 // ===================================================================== điều hướng + nút cố định
 function bindStatic() {
+  $("#update-dismiss").onclick = () => ($("#update-bar").hidden = true);
+  $("#btn-check-update").onclick = () => checkUpdate(true);
+  $("#btn-save-token").onclick = async () => {
+    const r = await api().set_update_token($("#set-gh-token").value);
+    $("#set-gh-token").value = "";
+    if (!r.ok) { toast(r.error); return; }
+    S.app = r.app; renderSettings();
+    toast(S.app.has_token ? "Đã lưu token GitHub" : "Đã xóa token GitHub");
+  };
   $$("#nav [data-page]").forEach((b) => b.addEventListener("click", (e) => { e.preventDefault(); go(b.dataset.page); }));
   $$(".theme-switch button").forEach((b) => (b.onclick = () => setTheme(b.dataset.theme)));
   $$("#theme-choice input").forEach((i) => (i.onchange = () => setTheme(i.value)));
@@ -128,6 +183,7 @@ function bindStatic() {
   $("#btn-save-settings").onclick = saveSettingsForm;
   $("#max-parallel").onchange = (e) => saveSettings({ max_parallel: Math.max(1, +e.target.value || 1) });
   bindProfileDialog();
+  bindGoalDialog();
 }
 
 function go(page) {
@@ -209,12 +265,69 @@ function renderDashboard() {
   $("#hero-month").textContent = fmt(stats.month);
   $("#hero-life").textContent = fmt(stats.lifetime);
   for (const id of ["#btn-run-one", "#btn-refresh"]) $(id).disabled = !name || S.running.has(name);
+  renderGoal(name, s);
   $("#tasks-updated").textContent = s.updated ? "Cập nhật " + s.updated : "";
   renderStamps(s);
   renderStreak(s);
   renderMeters(s);
   renderTasks(s);
   renderCharts(name);
+}
+
+// ===================================================================== mục tiêu đổi quà
+const isoDay = (d) => `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
+// còn bao nhiêu điểm, trung bình điểm/ngày (14 ngày gần nhất có số liệu, bỏ hôm nay vì chưa hết ngày), dự kiến bao lâu
+function goalEstimate(points, target, hist, today = isoDay(new Date())) {
+  const left = Math.max(0, target - (points || 0));
+  const days = Object.keys(hist || {}).filter((d) => d < today && hist[d]?.today > 0).sort().slice(-14);
+  const avg = days.length ? days.reduce((a, d) => a + hist[d].today, 0) / days.length : 0;
+  const need = left && avg ? Math.ceil(left / avg) : 0;
+  const eta = need ? new Date(new Date(today + "T00:00:00").getTime() + need * 864e5) : null;
+  return { left, avg: Math.round(avg), samples: days.length, days: need, eta };
+}
+function renderGoal(name, s) {
+  const box = $("#hero-goal");
+  if (!name) { box.innerHTML = ""; return; }
+  const g = (S.goals || {})[name];
+  if (!g) {
+    box.innerHTML = `<button class="goal-set" type="button" id="btn-goal"><i class="ti ti-target-arrow"></i>Đặt mục tiêu đổi quà</button>`;
+  } else {
+    const e = goalEstimate(s.points, g.points, S.history[name]);
+    const pct = Math.min(100, ((s.points || 0) / g.points) * 100);
+    const when = !e.left ? `<b class="goal-done">Đủ điểm rồi, vào trang Redeem để đổi</b>`
+      : e.avg ? `còn <b>${fmt(e.left)}</b> điểm · khoảng <b>${e.days} ngày</b> (${e.eta.toLocaleDateString("vi-VN", { day: "2-digit", month: "2-digit" })}), trung bình ${fmt(e.avg)}/ngày`
+      : `còn <b>${fmt(e.left)}</b> điểm · chưa đủ lịch sử để dự đoán`;
+    box.innerHTML = `<div class="goal-head"><span class="goal-title" title="${esc(g.title)}"><i class="ti ti-target-arrow"></i>${esc(g.title)}</span>
+        <button class="goal-edit" type="button" id="btn-goal" title="Sửa mục tiêu"><i class="ti ti-pencil"></i></button>
+        <span class="goal-num">${fmt(s.points)} / ${fmt(g.points)}</span></div>
+      <div class="goal-bar" role="progressbar" aria-valuemin="0" aria-valuemax="${g.points}" aria-valuenow="${s.points || 0}"><span style="width:${pct.toFixed(1)}%"></span></div>
+      <div class="goal-eta">${when}</div>`;
+  }
+  $("#btn-goal").onclick = () => openGoalDialog(name);
+}
+function openGoalDialog(name) {
+  const dlg = $("#goal-dialog"), g = (S.goals || {})[name];
+  dlg.dataset.name = name;
+  $("#gd-who").textContent = `Tài khoản ${name}: hiện có ${fmt(st(name).points)} điểm.`;
+  $("#gd-title").value = g ? g.title : "";
+  $("#gd-points").value = g ? g.points : "";
+  $("#gd-clear").hidden = !g;
+  $("#gd-error").textContent = "";
+  dlg.showModal(); $("#gd-title").focus();
+}
+function bindGoalDialog() {
+  const dlg = $("#goal-dialog");
+  $("#goal-form").onsubmit = async (e) => {
+    const act = e.submitter?.value;
+    if (act !== "ok" && act !== "clear") return;
+    e.preventDefault();
+    const pts = act === "clear" ? 0 : Number($("#gd-points").value);
+    if (act === "ok" && !(Number.isInteger(pts) && pts > 0)) { $("#gd-error").textContent = "Nhập số điểm cần (số nguyên lớn hơn 0)."; return; }
+    const r = await api().set_goal(dlg.dataset.name, $("#gd-title").value, pts);
+    if (!r.ok) { $("#gd-error").textContent = r.error; return; }
+    S.goals = r.goals; dlg.close(); renderDashboard();
+    toast(act === "clear" ? "Đã xóa mục tiêu" : "Đã lưu mục tiêu");
+  };
 }
 
 function renderStamps(s) {
@@ -628,6 +741,11 @@ function renderSettings() {
          <input class="form-check-input" type="checkbox" id="set-bypass-proxy" ${S.settings.bypass_proxy !== false ? "checked" : ""}>
          <span class="form-check-label">Không đi qua proxy hệ thống (chặn proxy chen giữa)</span></label>`;
   $$("#theme-choice input").forEach((i) => (i.checked = i.value === (S.settings.theme || "system")));
+  const app = S.app || {};
+  $("#app-version").textContent = `Phiên bản ${app.version || "?"}${app.frozen ? "" : " (mã nguồn)"}`;
+  $("#set-check-updates").checked = S.settings.check_updates !== false;
+  $("#set-gh-token").placeholder = app.has_token ? "Đã lưu token (nhập token mới để thay)" : "github_pat_...";
+  $("#set-gh-token").disabled = $("#btn-save-token").disabled = app.can_store === false;
 }
 async function saveSettingsForm() {
   const partial = { browser_channel: $("#set-browser").value };
@@ -637,6 +755,7 @@ async function saveSettingsForm() {
     partial[i.dataset.key] = v;
   }
   partial.bypass_proxy = $("#set-bypass-proxy").checked;
+  partial.check_updates = $("#set-check-updates").checked;
   const ok = await saveSettings(partial);
   renderSettings();
   if (ok) toast("Đã lưu cài đặt");

@@ -13,7 +13,8 @@ from pathlib import Path
 
 import webview
 
-from ..core import credentials, security
+from .. import __version__
+from ..core import credentials, security, updater
 from ..core import config
 from ..core.config import (DATA_DIR, DASHBOARD_FILE, HISTORY_FILE, POINTS_HISTORY_FILE, load_settings, new_profile_dir,
                            read_json, save_settings, write_json)
@@ -27,13 +28,15 @@ SETTING_SCHEMA = {
     "max_parallel": (int, 1, 10), "history_days": (int, 0, 365),
     "browse_minutes": (int, 1, 240),
     "headless": (bool,), "do_quests": (bool,), "do_pc": (bool,), "do_mobile": (bool,), "do_visual": (bool,),
-    "do_browse": (bool,), "bypass_proxy": (bool,),
+    "do_browse": (bool,), "bypass_proxy": (bool,), "check_updates": (bool,),
     "browser_channel": (str, ("msedge", "chrome", "")),
     "theme": (str, ("system", "light", "dark", "cyberpunk")),
 }
 SETTING_KEYS = tuple(SETTING_SCHEMA)
 ACTIONS = {"run", "refresh", "login", "check"}
 NAME_MAX = 40
+GOAL_TITLE_MAX = 60
+GOAL_POINTS_MAX = 10_000_000
 BAD_NAME_CHARS = set('\\/:*?"<>|')  # ký tự không hợp lệ trong tên thư mục Windows
 
 
@@ -141,7 +144,106 @@ class Api:
                 "history": self._history,
                 "running": list(self._runner.running),
                 "credentials": self._cred_info(),
+                "goals": self._settings.get("goals", {}),
+                "app": self._app_info(),
             }
+
+    # ------------------------------------------------------------ cập nhật
+    _TOKEN_KEY = "github_token"
+
+    def _app_info(self) -> dict:
+        return {"version": __version__, "frozen": config.FROZEN, "releases": updater.RELEASES_URL,
+                "has_token": bool(credentials.load_secret(self._TOKEN_KEY)), "can_store": credentials.supported()}
+
+    def check_update(self) -> dict:
+        """Hỏi GitHub bản mới nhất. Không có bản mới / lỗi mạng thì không làm phiền người dùng."""
+        try:
+            rel = updater.latest_release(credentials.load_secret(self._TOKEN_KEY))
+        except updater.UpdateError as e:
+            return {"ok": False, "error": str(e), "current": __version__}
+        self._release = rel
+        newer = updater.is_newer(rel["tag"])
+        return {"ok": True, "current": __version__, "latest": rel["version"], "newer": newer, "notes": rel["notes"],
+                "name": rel["name"], "can_install": newer and config.FROZEN and bool(rel["asset"])}
+
+    def set_update_token(self, token) -> dict:
+        token = str(token or "").strip()
+        if not token:
+            credentials.remove_secret(self._TOKEN_KEY)
+            return {"ok": True, "app": self._app_info()}
+        if not updater.TOKEN_RE.match(token):
+            return {"ok": False, "error": "Token GitHub không đúng dạng (bắt đầu bằng github_pat_ hoặc ghp_)."}
+        if not credentials.supported():
+            return {"ok": False, "error": "Chỉ lưu được token trên Windows (mã hóa DPAPI)."}
+        credentials.save_secret(self._TOKEN_KEY, token)
+        return {"ok": True, "app": self._app_info()}
+
+    def open_releases(self) -> dict:
+        """Mở trang bản phát hành trên GitHub bằng trình duyệt mặc định (chỉ đúng địa chỉ của repo này)."""
+        import webbrowser
+        webbrowser.open(updater.RELEASES_URL)
+        return {"ok": True}
+
+    def download_update(self) -> dict:
+        rel = getattr(self, "_release", None)
+        if not config.FROZEN:
+            return {"ok": False, "error": "Đang chạy từ mã nguồn: cập nhật bằng git pull."}
+        if not rel or not rel.get("asset") or not updater.is_newer(rel["tag"]):
+            return {"ok": False, "error": "Không có bản mới để tải."}
+        if getattr(self, "_downloading", False):
+            return {"ok": True}
+        self._downloading = True
+
+        def work():
+            dest = config.UPDATE_DIR / rel["asset"]["name"]
+            last = [0.0]
+
+            def progress(done, total):
+                if time.time() - last[0] > 0.5:
+                    last[0] = time.time()
+                    self._events.put({"type": "update", "state": "downloading", "done": done, "total": total})
+            try:
+                updater.download(rel["asset"], dest, credentials.load_secret(self._TOKEN_KEY), progress)
+                self._update_zip = dest
+                self._events.put({"type": "update", "state": "ready", "version": rel["version"]})
+            except (updater.UpdateError, OSError) as e:
+                self._events.put({"type": "update", "state": "error", "error": str(e)})
+            finally:
+                self._downloading = False
+
+        threading.Thread(target=work, daemon=True).start()
+        return {"ok": True}
+
+    def apply_update(self) -> dict:
+        """Chạy script cài (đợi app đóng rồi chép đè, giữ data/) và đóng app."""
+        z = getattr(self, "_update_zip", None)
+        if not z:
+            return {"ok": False, "error": "Chưa tải bản cập nhật."}
+        if self._runner.running:
+            return {"ok": False, "error": "Dừng các tài khoản đang chạy trước khi cập nhật."}
+        try:
+            updater.start_apply(z, config.BASE_DIR, config.UPDATE_DIR)
+        except (updater.UpdateError, OSError) as e:
+            return {"ok": False, "error": str(e)}
+        threading.Timer(0.8, lambda: [w.destroy() for w in list(webview.windows)]).start()
+        return {"ok": True}
+
+    def set_goal(self, name, title, points) -> dict:
+        """Đặt mục tiêu đổi quà cho 1 tài khoản; points = 0/None thì xóa mục tiêu."""
+        if not isinstance(name, str) or not self._find(name):
+            return {"ok": False, "error": "Không có tài khoản này."}
+        goals = self._settings.setdefault("goals", {})
+        if not points:
+            goals.pop(name, None)
+        else:
+            title = str(title or "").strip() or "Mục tiêu"
+            if isinstance(points, bool) or not isinstance(points, (int, float)) or int(points) != points                     or not 1 <= points <= GOAL_POINTS_MAX:
+                return {"ok": False, "error": f"Số điểm phải là số nguyên từ 1 đến {GOAL_POINTS_MAX:,}."}
+            if len(title) > GOAL_TITLE_MAX or not title.isprintable():
+                return {"ok": False, "error": f"Tên mục tiêu tối đa {GOAL_TITLE_MAX} ký tự."}
+            goals[name] = {"title": title, "points": int(points)}
+        save_settings(self._settings)
+        return {"ok": True, "goals": goals}
 
     @staticmethod
     def _cred_info() -> dict:
@@ -194,6 +296,9 @@ class Api:
                             store[name] = store.pop(old_name)
                     _save(POINTS_HISTORY_FILE, self._history)
                     credentials.rename(old_name, name)
+                    goals = self._settings.get("goals", {})
+                    if old_name in goals:
+                        goals[name] = goals.pop(old_name)
             else:
                 p["dir"] = new_profile_dir(name, taken=[x.get("dir") for x in self._profiles()])
                 self._profiles().append(p)
@@ -203,6 +308,8 @@ class Api:
     def delete_profiles(self, names: list) -> dict:
         names = [n for n in (names or []) if isinstance(n, str) and not self._runner.is_running(n)]
         self._settings["profiles"] = [p for p in self._profiles() if p["name"] not in names]
+        for n in names:
+            self._settings.get("goals", {}).pop(n, None)
         save_settings(self._settings)
         for n in names:  # xóa tài khoản thì xóa luôn mật khẩu đã lưu
             credentials.remove(n)

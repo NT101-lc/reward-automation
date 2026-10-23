@@ -88,3 +88,41 @@ def test_history_records_missing_tasks(api):
     api._on_status("a", {"stats": {"available": 10, "today": 5}, "tasks": tasks})
     day = next(iter(api._history["a"].values()))
     assert day["today"] == 5 and day["missing"] == [{"t": "Edge – Minutes", "g": "Hoạt động", "p": 0, "m": 30}]
+
+
+def test_goal_validation_and_follows_profile(api):
+    assert api.save_profile(None, {"name": "a"})["ok"]
+    assert api.set_goal("nope", "x", 100)["ok"] is False
+    for bad in (-5, 1.5, "100", True, 10**9):
+        assert api.set_goal("a", "Thẻ quà", bad)["ok"] is False
+    assert api.set_goal("a", "x" * 61, 100)["ok"] is False
+    r = api.set_goal("a", "  Thẻ quà 5$ ", 6500)
+    assert r["ok"] and r["goals"] == {"a": {"title": "Thẻ quà 5$", "points": 6500}}
+    assert api.save_profile("a", {"name": "b"})["ok"]  # đổi tên tài khoản: mục tiêu đi theo
+    assert "b" in api._settings["goals"] and "a" not in api._settings["goals"]
+    assert api.set_goal("b", "", 0)["goals"] == {}  # 0 điểm = xóa mục tiêu
+    api.set_goal("b", "", 100)
+    api.delete_profiles(["b"])
+    assert api._settings["goals"] == {}
+
+
+def test_update_check_and_token(api, monkeypatch):
+    monkeypatch.setattr(W.updater, "latest_release", lambda token: {
+        "tag": "v9.0.0", "version": "9.0.0", "name": "v9", "notes": "", "url": "", "asset": {"name": "x", "size": 1, "api_url": ""}})
+    r = api.check_update()
+    assert r["ok"] and r["newer"] and r["latest"] == "9.0.0"
+    assert r["can_install"] is False  # chạy từ mã nguồn: không tự cài, dùng git pull
+    assert api.download_update()["ok"] is False
+    assert api.set_update_token("not-a-token")["ok"] is False
+    if W.credentials.supported():
+        tok = "github_pat_" + "A" * 40
+        assert api.set_update_token(tok)["app"]["has_token"] is True
+        assert tok not in repr(api._app_info())
+        assert api.set_update_token("")["app"]["has_token"] is False
+
+
+def test_update_check_error_is_reported(api, monkeypatch):
+    def boom(token):
+        raise W.updater.UpdateError("Không kết nối được GitHub")
+    monkeypatch.setattr(W.updater, "latest_release", boom)
+    assert api.check_update() == {"ok": False, "error": "Không kết nối được GitHub", "current": W.__version__}

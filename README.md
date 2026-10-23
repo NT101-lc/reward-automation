@@ -7,6 +7,12 @@ và browse web trong N phút. Chạy được nhiều tài khoản/cửa sổ **
 
 ## Cài đặt
 
+**Cách dễ nhất (Windows, không cần Python):** tải `RewardsBot-<phiên bản>-win64.zip` ở trang
+[Releases](https://github.com/NT101-lc/reward-automation/releases), giải nén vào một thư mục cố định (vd
+`C:\RewardsBot`), chạy `RewardsBot.exe`. Máy cần có Microsoft Edge (Windows 10/11 có sẵn). Dữ liệu (tài khoản, phiên
+đăng nhập, cài đặt) nằm trong `data\` cạnh `RewardsBot.exe`.
+
+**Từ mã nguồn:**
 ```bash
 pip install -r requirements.txt
 ```
@@ -38,6 +44,8 @@ python -m rewards_bot
 - Biểu đồ điểm mỗi ngày (PC / Mobile / Offers, 14 ngày) và số điểm hiện có (30 ngày); rê chuột để xem số liệu.
 - Danh sách task hôm nay theo nhóm, có icon và trạng thái.
 - **Làm mới** chỉ đọc điểm từ Rewards (chạy ẩn), không làm task.
+- **Mục tiêu đổi quà** (trong khối điểm): đặt món muốn đổi và số điểm cần, app hiện thanh tiến độ và dự kiến số ngày
+  còn lại, tính theo trung bình điểm/ngày của 14 ngày gần nhất trong Lịch sử (bỏ hôm nay vì chưa hết ngày).
 - **Kiểm tra** (tự chẩn đoán, không search): đăng nhập Rewards, Points breakdown, thẻ Daily Set, bing.com có đúng
   tài khoản không (desktop và mobile), profile có bị cửa sổ khác giữ không, proxy. Cũng chạy được bằng
   `python -m rewards_bot --check`.
@@ -156,6 +164,24 @@ font Bahnschrift của giao diện Cyberpunk được thay bằng font dự phò
 python -m rewards_bot --run-all --headless
 ```
 Đặt lệnh này trong Windows Task Scheduler, với thư mục bắt đầu là thư mục dự án (hoặc dùng `run.bat --run-all --headless`).
+Bản .exe: lệnh là `C:\RewardsBot\RewardsBot.exe --run-all --headless`.
+
+## Cập nhật
+
+- **Bản .exe:** mở app thì app tự hỏi GitHub có bản mới không (tắt được trong Cài đặt). Có bản mới thì hiện thanh báo ở
+  trên cùng: **Tải và cập nhật**, rồi **Khởi động lại để cập nhật**. App đóng, chép đè file mới rồi tự mở lại; thư mục
+  `data\` không bao giờ bị đụng tới. Kết quả ghi ở `data\update\update.log`.
+- Repo đang **riêng tư** nên GitHub chỉ trả thông tin bản phát hành khi có token: vào Cài đặt > Cập nhật, dán một
+  *fine-grained token* chỉ cho repo này với quyền **Contents: Read-only**. Token được mã hóa DPAPI (`data\secrets.json`).
+- **Bản mã nguồn:** `git pull`.
+- App bị lỗi khi mở (bản .exe): chi tiết ghi ở `data\crash.log`.
+
+### Phát hành bản mới (người phát triển)
+1. Tăng `__version__` trong `rewards_bot/__init__.py`, commit.
+2. `git tag v<phiên bản>` rồi `git push origin v<phiên bản>`. GitHub Actions (`.github/workflows/release.yml`) chạy test,
+   build `.exe` trên Windows và tạo Release kèm file zip.
+3. Build thử trên máy: `python packaging/build_exe.py` ra `dist/RewardsBot/RewardsBot.exe` và
+   `dist/RewardsBot-<phiên bản>-win64.zip`.
 
 ## Cấu trúc
 
@@ -172,10 +198,14 @@ rewards-bot/
 │   │   ├── browser.py      # phát hiện trình duyệt đang giữ profile
 │   │   ├── security.py     # khóa quyền data/, proxy, cổng debug
 │   │   ├── instance.py     # chỉ 1 cửa sổ app chạy cùng lúc
+│   │   ├── credentials.py  # mật khẩu / token mã hóa DPAPI
+│   │   ├── updater.py      # kiểm tra + cài bản mới từ GitHub Releases
 │   │   └── config.py       # cài đặt, tài khoản, đọc/ghi file an toàn
 │   ├── search/             # catalog.py (danh mục câu search) + bank.py (chia câu không trùng)
 │   └── ui/                 # webapp.py (pywebview) + web/ (index.html, style.css, app.js, theme.js)
 │                           #   web/vendor/: Tabler, Tabler Icons, ApexCharts (MIT, lưu sẵn, không tải từ mạng)
+├── packaging/              # build bản .exe (PyInstaller): build_exe.py, RewardsBot.spec, launcher.py
+├── .github/workflows/      # release.yml: đẩy tag v* -> build .exe + tạo GitHub Release
 ├── tests/                  # pytest: logic, dữ liệu, giao diện
 ├── data/                   # tự tạo khi chạy (không commit)
 ├── run.bat / run.sh        # mở app (Windows / Linux)

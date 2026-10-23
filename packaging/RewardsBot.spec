@@ -1,0 +1,19 @@
+# PyInstaller: đóng gói thành thư mục RewardsBot/ (RewardsBot.exe + _internal/). Chạy qua: python packaging/build_exe.py
+# Bản thư mục (onedir) mở nhanh hơn bản 1 file và ít bị phần mềm diệt virus báo nhầm.
+import os
+from pathlib import Path
+
+ROOT = Path(SPECPATH).parent
+
+a = Analysis(
+    [str(ROOT / "packaging" / "launcher.py")],
+    pathex=[str(ROOT)],
+    datas=[(str(ROOT / "rewards_bot" / "ui" / "web"), "rewards_bot/ui/web")],
+    hiddenimports=["rewards_bot.ui.webapp", "rewards_bot.cli"],
+    excludes=["tkinter", "pytest", "rewards_bot.gui"],
+    noarchive=False,
+)
+pyz = PYZ(a.pure)
+exe = EXE(pyz, a.scripts, [], exclude_binaries=True, name="RewardsBot", console=bool(os.environ.get("RB_CONSOLE")),
+          icon=str(ROOT / "packaging" / "icon.ico") if (ROOT / "packaging" / "icon.ico").exists() else None)
+coll = COLLECT(exe, a.binaries, a.datas, name="RewardsBot")

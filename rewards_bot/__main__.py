@@ -7,12 +7,25 @@ Microsoft Rewards Bot
 """
 
 import argparse
+import os
 import sys
 
 from .core.instance import AlreadyRunning, single_instance
 
 
+def _safe_console() -> None:
+    """In tiếng Việt ra console Windows (cp1252) không làm app chết. Bản .exe không có console: PyInstaller để stdout là
+    None hoặc một luồng giả mã cp1252 không đổi được, nên thay bằng luồng rỗng UTF-8."""
+    for name in ("stdout", "stderr"):
+        stream = getattr(sys, name)
+        try:
+            stream.reconfigure(encoding="utf-8", errors="replace")
+        except (AttributeError, ValueError, OSError):
+            setattr(sys, name, open(os.devnull, "w", encoding="utf-8"))
+
+
 def main() -> None:
+    _safe_console()
     ap = argparse.ArgumentParser(prog="rewards_bot")
     ap.add_argument("--run-all", action="store_true", help="chạy tất cả tài khoản không mở giao diện")
     ap.add_argument("--check", action="store_true", help="kiểm tra tất cả tài khoản (không search)")

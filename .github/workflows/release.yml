@@ -1,0 +1,43 @@
+# Đẩy tag phiên bản (vd: git tag v1.2.0 && git push origin v1.2.0) -> chạy test, build RewardsBot.exe trên Windows và
+# tạo GitHub Release kèm RewardsBot-<phiên bản>-win64.zip. App tự cập nhật từ file zip này.
+name: release
+
+on:
+  push:
+    tags: ["v*"]
+
+permissions:
+  contents: write
+
+jobs:
+  build:
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.13"
+
+      - name: Cài thư viện
+        run: python -m pip install -r requirements-dev.txt
+
+      - name: Tag phải khớp phiên bản trong rewards_bot/__init__.py
+        shell: pwsh
+        run: |
+          $v = python -c "import rewards_bot; print(rewards_bot.__version__)"
+          if ("v$v" -ne "${{ github.ref_name }}") { throw "Tag ${{ github.ref_name }} khác phiên bản v$v" }
+
+      - name: Test
+        run: python -m pytest -q tests
+
+      - name: Build .exe
+        run: python packaging/build_exe.py
+
+      - name: Tạo GitHub Release
+        shell: pwsh
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          $zip = Get-ChildItem dist -Filter "RewardsBot-*-win64.zip" | Select-Object -First 1
+          gh release create "${{ github.ref_name }}" $zip.FullName --title "Rewards Bot ${{ github.ref_name }}" --generate-notes

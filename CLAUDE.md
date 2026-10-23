@@ -35,6 +35,16 @@ python -m rewards_bot --run-all --headless # what Task Scheduler runs
   Task icons are Fluent Emoji 3D PNGs (MIT, `vendor/fluent-emoji/`, 96px), picked in `app.js` by `ICON_RULES`
   (title first, then Bing image name, then group). The Cyberpunk skin (`cyberpunk.css`, `data-skin="cyberpunk"`) uses
   Chakra Petch (OFL, `vendor/fonts/`) and the app's own `assets/skyline.svg`.
+- Packaging: `packaging/build_exe.py` builds a PyInstaller onedir `dist/RewardsBot/` plus
+  `RewardsBot-<ver>-win64.zip`. When frozen (`config.FROZEN`), `BASE_DIR` is the folder of `RewardsBot.exe`, so `data/`
+  sits next to it. `packaging/launcher.py` writes uncaught errors to `data/crash.log`. The windowed exe has no usable
+  stdout, and printing Vietnamese crashed it until `__main__._safe_console()` was added. Keep that.
+- `core/updater.py`: checks GitHub Releases (`REPO`, private, so it needs a read-only token stored with
+  `credentials.save_secret`), downloads the zip (the token is not sent to the redirect host), and `verify_zip` rejects
+  traversal or any `RewardsBot/data/` entry. A detached PowerShell script then waits for the app to exit, robocopies
+  over the install excluding `data/`, and restarts it. Version = `rewards_bot.__version__`. Pushing tag `v<ver>` runs
+  `.github/workflows/release.yml`, and the tag must match `__version__`.
+- Reward goal per account: `settings["goals"]`, set through `Api.set_goal`. It follows profile renames and deletes.
 - `search/catalog.py`: the query catalog. `search/bank.py` hands out queries without repeats across accounts or
   across `history_days`.
 - `data/` holds login sessions and cookies. It is never committed. Profile dir = `data/profiles/<profile["dir"]>`,

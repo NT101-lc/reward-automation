@@ -50,6 +50,11 @@
   </aside>
 
   <div class="page-wrapper">
+    <div class="update-bar" id="update-bar" role="status" hidden>
+      <i class="ti ti-download"></i><span id="update-text"></span>
+      <span class="update-actions" id="update-actions"></span>
+      <button type="button" class="btn-close btn-close-white ms-1" id="update-dismiss" aria-label="Ẩn thông báo cập nhật"></button>
+    </div>
     <!-- ======================== Tổng quan ======================== -->
     <section class="view" id="page-dashboard">
       <div class="page-header">
@@ -77,6 +82,7 @@
                   <div><div class="lbl">Tháng này</div><div class="val" id="hero-month">—</div></div>
                   <div><div class="lbl">Trọn đời</div><div class="val" id="hero-life">—</div></div>
                 </div>
+                <div class="hero-goal" id="hero-goal"></div>
               </div>
             </div>
           </div>
@@ -236,6 +242,28 @@
                     <span class="form-selectgroup-label"><i class="ti ti-device-desktop me-1"></i>Theo Windows</span></label>
                   <label class="form-selectgroup-item flex-fill"><input type="radio" name="theme" value="cyberpunk" class="form-selectgroup-input">
                     <span class="form-selectgroup-label"><i class="ti ti-bolt me-1"></i>Cyberpunk</span></label>
+                </div>
+              </div>
+            </div>
+            <div class="card">
+              <div class="card-header"><h3 class="card-title">Cập nhật</h3><div class="card-actions text-secondary" id="app-version"></div></div>
+              <div class="card-body d-flex flex-column gap-3">
+                <label class="form-check form-switch m-0">
+                  <input class="form-check-input" type="checkbox" id="set-check-updates">
+                  <span class="form-check-label">Mở app thì kiểm tra bản mới</span></label>
+                <div class="d-flex flex-wrap align-items-center gap-2">
+                  <button class="btn" type="button" id="btn-check-update"><i class="ti ti-refresh"></i>Kiểm tra ngay</button>
+                  <span class="text-secondary small min-w-0" id="update-result"></span>
+                </div>
+                <div>
+                  <label class="form-label" for="set-gh-token">Token GitHub (repo riêng tư)</label>
+                  <div class="d-flex gap-2">
+                    <input id="set-gh-token" type="password" class="form-control" autocomplete="off" spellcheck="false" maxlength="260">
+                    <button class="btn" type="button" id="btn-save-token">Lưu</button>
+                  </div>
+                  <div class="form-hint mt-2">Repo đang để riêng tư nên GitHub chỉ cho xem bản phát hành khi có token. Tạo
+                    <em>fine-grained token</em> chỉ cho repo này, quyền <b>Contents: Read-only</b>. Token được Windows mã hóa
+                    (DPAPI) và không hiện lại. Để trống rồi bấm Lưu để xóa.</div>
                 </div>
               </div>
             </div>
@@ -409,6 +437,27 @@
     <div class="dlg-foot">
       <button class="btn" value="cancel" formnovalidate>Hủy</button>
       <button class="btn btn-primary" value="ok" id="pd-save">Lưu</button>
+    </div>
+  </form>
+</dialog>
+
+<dialog id="goal-dialog" class="dlg">
+  <form method="dialog" id="goal-form">
+    <div class="dlg-head"><h3 class="m-0">Mục tiêu đổi quà</h3>
+      <button class="btn-close" value="cancel" formnovalidate aria-label="Đóng"></button></div>
+    <div class="dlg-body">
+      <p class="text-secondary mt-0" id="gd-who"></p>
+      <label class="form-label" for="gd-title">Món muốn đổi</label>
+      <input id="gd-title" class="form-control" maxlength="60" placeholder="Vd: Thẻ quà Amazon 5$">
+      <label class="form-label mt-3" for="gd-points">Số điểm cần</label>
+      <input id="gd-points" type="number" class="form-control" min="1" max="10000000" step="1" placeholder="Vd: 6500">
+      <div class="form-hint mt-2">Xem số điểm của từng món ở trang Redeem trên rewards.bing.com.</div>
+      <div class="text-danger mt-2" id="gd-error"></div>
+    </div>
+    <div class="dlg-foot">
+      <button class="btn btn-ghost-danger me-auto" value="clear" id="gd-clear" formnovalidate>Xóa mục tiêu</button>
+      <button class="btn" value="cancel" formnovalidate>Hủy</button>
+      <button class="btn btn-primary" value="ok">Lưu</button>
     </div>
   </form>
 </dialog>

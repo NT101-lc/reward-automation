@@ -44,6 +44,15 @@ body { overflow-y: scroll; }
   .page-wrapper { margin-left: 15rem; }
 }
 
+/* ---------------------------------------------------------------- thanh báo bản mới */
+.update-bar { display: flex; flex-wrap: wrap; align-items: center; gap: 8px 12px; padding: 10px 24px; font-size: 14px;
+  background: var(--tblr-primary); color: #fff; }
+.update-bar > .ti { font-size: 18px; }
+.update-bar code { background: rgba(255, 255, 255, .15); color: inherit; }
+.update-actions { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; margin-left: auto; }
+.update-bar .btn:not(.btn-primary) { background: rgba(255, 255, 255, .12); color: #fff; border-color: rgba(255, 255, 255, .3); }
+.update-bar .btn-primary { background: #fff; color: var(--tblr-primary); border-color: #fff; }
+
 /* ---------------------------------------------------------------- chung */
 .btn i.ti { font-size: 18px; margin-right: 6px; }
 .btn-sm i.ti { font-size: 15px; margin-right: 4px; }
@@ -68,6 +77,23 @@ body { overflow-y: scroll; }
 .hero-mini { display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px; border-top: 1px solid rgba(255, 255, 255, .12); padding-top: 14px; }
 .hero-mini .lbl { font-size: 12px; color: rgba(255, 255, 255, .55); }
 .hero-mini .val { font-size: 18px; font-weight: 600; font-variant-numeric: tabular-nums; }
+/* mục tiêu đổi quà (trong khối điểm, nền luôn tối) */
+.hero-goal { margin-top: 14px; padding-top: 12px; border-top: 1px solid rgba(255, 255, 255, .12); font-size: 13px; }
+.hero-goal:empty { display: none; }
+.goal-set { border: 1px dashed rgba(255, 255, 255, .3); background: none; color: rgba(255, 255, 255, .75); border-radius: 8px;
+  padding: 6px 12px; width: 100%; display: flex; align-items: center; justify-content: center; gap: 6px; }
+.goal-set:hover { color: #fff; border-color: var(--rb-gold); }
+.goal-head { display: flex; align-items: center; gap: 6px; min-width: 0; }
+.goal-title { font-weight: 600; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; min-width: 0; }
+.goal-title .ti { color: var(--rb-gold); margin-right: 5px; }
+.goal-edit { border: 0; background: none; color: rgba(255, 255, 255, .5); padding: 0 2px; flex: none; }
+.goal-edit:hover { color: #fff; }
+.goal-num { margin-left: auto; font-variant-numeric: tabular-nums; color: rgba(255, 255, 255, .75); white-space: nowrap; }
+.goal-bar { height: 6px; border-radius: 3px; background: rgba(255, 255, 255, .12); margin: 7px 0 6px; overflow: hidden; }
+.goal-bar span { display: block; height: 100%; background: var(--rb-gold); border-radius: inherit; }
+.goal-eta { color: rgba(255, 255, 255, .6); }
+.goal-eta b { color: #fff; font-weight: 600; }
+.goal-eta .goal-done { color: var(--rb-gold); }
 
 /* ---------------------------------------------------------------- thẻ đóng dấu hôm nay */
 .stamps { display: flex; flex-wrap: wrap; gap: 14px; }

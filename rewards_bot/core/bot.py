@@ -1015,12 +1015,15 @@ class RewardsBot:
             self.status(start=start)
             self.log(f"Điểm hiện tại: {start}")
 
+            # thứ tự: Daily Set / Keep earning -> Visual Search -> search PC -> search Mobile -> Browse
             if self.s.get("do_quests", True):  # Daily Set + Keep earning
                 self.do_cards(page)
                 self.retry_missed_cards(page)
             wants_search = any(self.s.get(k, d) for k, d in (("do_pc", True), ("do_mobile", True), ("do_visual", True)))
             account_ok = self.bing_account_ok(page) if wants_search else True
             if account_ok:
+                if self.s.get("do_visual", True):
+                    self.do_visual_search(ctx, page)
                 if self.s.get("do_pc", True):
                     self.do_searches(page, "pc", "Search PC")
                 if self.s.get("do_mobile", True):
@@ -1031,11 +1034,7 @@ class RewardsBot:
                     self.do_searches(mpage, "mobile", "Search Mobile", check_page=page)
                     mpage.close()
                     own.remove(mpage)
-                    self.new_bing_session(ctx)  # search ảnh / browse sau đó lại là PC
-                if self.s.get("do_pc", True) or self.s.get("do_mobile", True):
-                    self.read_state(page)
-                if self.s.get("do_visual", True):
-                    self.do_visual_search(ctx, page)
+                    self.new_bing_session(ctx)  # browse sau đó lại là PC
             if self.s.get("do_browse", False):
                 self.read_state(page)  # số phút Edge mới nhất (có thể đã tăng trong lúc search)
                 self.do_browse(page, int(self.s.get("browse_minutes", 30)))

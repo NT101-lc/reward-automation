@@ -518,3 +518,26 @@
 [data-skin="cyberpunk"] .nm-tag.tone-2 { --tone: var(--cp-pink); }
 [data-skin="cyberpunk"] .nm-tag.tone-3 { --tone: #b892ff; }
 [data-skin="cyberpunk"] .nm-tag.tone-4 { --tone: #3dff9a; }
+
+/* ---------------------------------------------------------------- mục tiêu đổi quà: thanh năng lượng vàng có vạch */
+[data-skin="cyberpunk"] .hero-goal { border-top-color: rgba(5, 217, 232, .3); position: relative; }
+[data-skin="cyberpunk"] .goal-set { border-radius: 0; font-family: var(--cp-display); text-transform: uppercase; letter-spacing: .06em; }
+[data-skin="cyberpunk"] .goal-title { font-family: var(--cp-display); text-transform: uppercase; letter-spacing: .05em; }
+[data-skin="cyberpunk"] .goal-num { font-family: var(--cp-display); color: var(--cp-yellow); }
+[data-skin="cyberpunk"] .goal-bar { border-radius: 0; height: 8px; background: rgba(38, 51, 92, .8); position: relative; }
+[data-skin="cyberpunk"] .goal-bar span { border-radius: 0; background: linear-gradient(90deg, var(--cp-pink), var(--cp-yellow));
+  box-shadow: 0 0 10px rgba(252, 238, 10, .5); }
+[data-skin="cyberpunk"] .goal-bar::after { content: ""; position: absolute; inset: 0;
+  background: repeating-linear-gradient(90deg, transparent 0 9px, var(--cp-night) 9px 11px); }
+
+/* ---------------------------------------------------------------- thanh báo bản mới: dải cảnh báo vàng đen */
+[data-skin="cyberpunk"] .update-bar {
+  background: linear-gradient(90deg, rgba(252, 238, 10, .16), rgba(7, 10, 23, .9) 60%), #070a17;
+  border-bottom: 1px solid var(--cp-yellow);
+  color: var(--cp-text);
+  font-family: var(--cp-display);
+  letter-spacing: .03em;
+}
+[data-skin="cyberpunk"] .update-bar > .ti { color: var(--cp-yellow); }
+[data-skin="cyberpunk"] .update-bar b { color: var(--cp-yellow); }
+[data-skin="cyberpunk"] .update-bar .btn-primary { background: var(--cp-yellow); color: var(--cp-night); border-color: var(--cp-yellow); }

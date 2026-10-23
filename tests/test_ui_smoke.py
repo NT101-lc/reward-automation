@@ -58,6 +58,8 @@ def boot_data():
             "2026-10-21": {"available": 3696, "pc": 90, "mobile": 60, "offers": 29}}},
         "running": [],
         "credentials": {"supported": True, "emails": {"acc <img src=x onerror=alert(1)>": "me@example.com"}},
+        "goals": {"acc <img src=x onerror=alert(1)>": {"title": "<img src=x onerror=alert(5)>", "points": 6500}},
+        "app": {"version": "1.2.0", "frozen": True, "has_token": False, "can_store": True},
     }
 
 
@@ -112,6 +114,27 @@ def test_pages_render_without_errors(server):
         if SHOT:
             pg.set_viewport_size({"width": 1320, "height": 1100})
             pg.screenshot(path=SHOT, full_page=True)
+        # mục tiêu đổi quà: thanh tiến độ + dự kiến; tính trung bình bỏ ngày hôm nay (chưa hết ngày)
+        goal = pg.locator("#hero-goal").inner_text()
+        assert "3,417 / 6,500" in goal and "3,083" in goal
+        est = pg.evaluate("""goalEstimate(3417, 6500, {"2026-10-19": {today: 100}, "2026-10-20": {today: 300},
+                                                       "2026-10-21": {today: 50}}, "2026-10-21")""")
+        assert est["left"] == 3083 and est["avg"] == 200 and est["days"] == 16
+        assert pg.evaluate("goalEstimate(7000, 6500, {}).left") == 0
+        pg.click("#btn-goal")
+        assert pg.locator("#goal-dialog").is_visible() and pg.input_value("#gd-points") == "6500"
+        pg.click("#goal-dialog .btn-close")
+        # bản mới: thanh báo hiện nút tải; sự kiện tải xong đổi sang nút khởi động lại
+        pg.evaluate("""(() => { const real = window.pywebview.api;
+            window.pywebview.api = new Proxy({}, {get: (_, k) => k === "check_update"
+              ? async () => ({ok: true, current: "1.2.0", latest: "1.3.0", newer: true, can_install: true}) : real[k]});
+            return checkUpdate(false); })()""")
+        pg.wait_for_selector("#update-bar:not([hidden]) #btn-upd-get", timeout=3000)
+        assert "1.3.0" in pg.locator("#update-text").inner_text()
+        pg.evaluate("window.onEvents([{type: 'update', state: 'ready', version: '1.3.0'}])")
+        assert pg.locator("#btn-upd-apply").is_visible()
+        pg.click("#update-dismiss")
+        assert not pg.locator("#update-bar").is_visible()
         # lịch sử: mỗi ngày 1 dòng, cột "Còn thiếu" lấy từ missing (bỏ PC/Mobile vì đã có cột riêng)
         pg.evaluate("""(() => { const today = new Date().toISOString().slice(0, 10);
             const h = window.__B.history[Object.keys(window.__B.history)[0]];

@@ -397,3 +397,27 @@ def test_edge_profile_check_ok_when_pinned_profile_signed_in(tmp_path, monkeypat
     info["Profile 1"]["user_name"] = ""  # profile đang ghim chưa đăng nhập trình duyệt, profile kia có
     (tmp_path / "Local State").write_text(_json.dumps({"profile": {"last_used": "Profile 1", "info_cache": info}}))
     assert bot.edge_profile_check()[0] == "warn" and (tmp_path / el.PIN_FILE).read_text().strip() == "Profile 1"
+
+
+def test_run_order_daily_visual_pc_mobile():
+    bot, logs = make_bot(do_browse=False)
+    order = []
+    st = {"available": 100, "daily": [], "more": []}
+
+    class Ctx:
+        def new_page(self):
+            return type("P", (), {"close": lambda self: None})()
+
+    bot.read_state = lambda page: st
+    bot.do_cards = lambda page: order.append("daily")
+    bot.retry_missed_cards = lambda page: None
+    bot.bing_account_ok = lambda page: True
+    bot.do_visual_search = lambda ctx, page: order.append("visual")
+    bot.do_searches = lambda page, kind, label, check_page=None: order.append(kind)
+    bot.new_bing_session = lambda ctx: order.append("reset")
+    bot._emulate_mobile = lambda ctx, page: None
+    bot._session = lambda work, headless, label: work(Ctx(), FakePage(), [])
+    bot.run()
+    assert [o for o in order if o != "reset"] == ["daily", "visual", "pc", "mobile"]
+    i = order.index("mobile")
+    assert order[i - 1] == "reset" and order[i + 1] == "reset"  # vẫn xóa phiên Bing trước và sau Mobile
