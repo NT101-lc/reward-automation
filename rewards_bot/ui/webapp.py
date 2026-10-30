@@ -30,7 +30,7 @@ SETTING_SCHEMA = {
     "browse_minutes": (int, 1, 240),
     "headless": (bool,), "do_quests": (bool,), "do_pc": (bool,), "do_mobile": (bool,), "do_visual": (bool,),
     "do_browse": (bool,), "bypass_proxy": (bool,), "check_updates": (bool,),
-    "browse_auto_stop": (bool,), "do_quest_tasks": (bool,),
+    "browse_auto_stop": (bool,), "do_quest_tasks": (bool,), "random_search_points": (bool,),
     "browser_channel": (str, ("msedge", "chrome", "")),
     "theme": (str, ("system", "light", "dark", "cyberpunk")),
     "language": (str, ("vi", "en")),

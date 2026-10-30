@@ -732,6 +732,8 @@ function renderToggles() {
     ["do_visual", "Visual Search", "Tìm bằng 1 ảnh qua nút camera của Bing (mỗi ngày 1 lượt)", "camera"],
     ["do_pc", "Search PC", "Tìm đến khi đủ điểm search máy tính", "pc"],
     ["do_mobile", "Search Mobile", "Giả lập điện thoại, tìm đến khi đủ điểm", "mobile"],
+    ["random_search_points", "Random điểm search mỗi ngày",
+      "Mỗi ngày random mục tiêu 0-90 điểm PC và 0-60 điểm Mobile (chia hết cho 3), search đến đúng số đó thì dừng", "target"],
     ["do_browse", "Browse", `Lướt web tối đa ${S.settings.browse_minutes} phút cho Edge – Minutes, đo số phút mỗi 10 phút`, "globe"],
     ["browse_auto_stop", "Tự dừng khi không được tính phút",
       `Edge – Minutes không tăng sau 20 phút thì dừng. Tắt để luôn lướt đủ ${S.settings.browse_minutes} phút`, "", "do_browse"],
