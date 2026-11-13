@@ -1,55 +1,137 @@
 <div align="center">
 
-<img src="rewards_bot/ui/web/assets/app-icon-256.png" width="96" alt="PrixAuto logo">
+<img src="rewards_bot/ui/web/assets/app-icon-256.png" width="104" alt="PrixAuto logo">
 
 # PrixAuto
 
-**Your daily Microsoft Rewards tasks, done for several accounts, from one desktop app.**
+**Your daily Microsoft Rewards tasks, done automatically for several accounts, from one desktop app.**
 
-[![Release](https://img.shields.io/github/v/release/NT101-lc/reward-automation?label=download&color=2563eb)](https://github.com/NT101-lc/reward-automation/releases/latest)
+[![Release](https://img.shields.io/github/v/release/NT101-lc/reward-automation?label=latest&color=2563eb)](https://github.com/NT101-lc/reward-automation/releases/latest)
+[![Downloads](https://img.shields.io/github/downloads/NT101-lc/reward-automation/total?label=downloads&color=2563eb)](https://github.com/NT101-lc/reward-automation/releases)
 [![License: MIT](https://img.shields.io/badge/license-MIT-2563eb)](LICENSE)
-![Windows 10/11](https://img.shields.io/badge/Windows-10%20%7C%2011-475569)
-![Linux](https://img.shields.io/badge/Linux-headless%20%2B%20UI-475569)
+![Windows 10/11](https://img.shields.io/badge/Windows-10%20%7C%2011-475569?logo=windows)
+![Linux](https://img.shields.io/badge/Linux-headless%20%2B%20UI-475569?logo=linux&logoColor=white)
+![Python](https://img.shields.io/badge/Python-3.10%2B-475569?logo=python&logoColor=white)
 
-[Tiếng Việt](README.md) · English · [Website](https://nt101-lc.github.io/reward-automation/)
+[**Download**](https://github.com/NT101-lc/reward-automation/releases/latest) ·
+[Features](#features) ·
+[Screenshots](#screenshots) ·
+[Install](#install-on-windows-no-python-needed) ·
+[FAQ](#faq) ·
+[Tiếng Việt](README.md) ·
+[Website](https://nt101-lc.github.io/reward-automation/)
 
-<img src="docs/images/dashboard.png" alt="PrixAuto overview page" width="900">
+<br>
+
+<img src="docs/images/dashboard.png" alt="PrixAuto overview page" width="920">
 
 </div>
+
+<br>
 
 > [!WARNING]
 > **Read this first.** The Microsoft Rewards terms do not allow bots or automated tools to earn points. Microsoft can
 > suspend the Rewards account and cancel unredeemed points or orders. This project is not affiliated with or endorsed by
 > Microsoft. You use it entirely at your own risk; do not use it with an account you cannot afford to lose.
 
-## Features
-
-- **Daily tasks**: Daily Set, Keep earning (links, polls, simple quizzes), multi-step Quests.
-- **Searches**: PC and Mobile searches until the points are full, with queries from 22 topics (~2,600 real-looking
-  sentences plus ~10,000 popular keywords), never repeated across accounts or within N days.
-- **Visual Search** and **Browse** (Edge – Minutes) as optional extras.
-- **Several accounts in parallel**, each in its own Edge profile and window, with a limit on how many run at once.
-- **Dashboard**: points, today's progress, streaks and stamp bonus, daily charts, a reward goal with an ETA, and a
-  per-day history of what was earned and what is still missing.
-- **Self-check** (no searches): verifies sign-in, the bing.com account, the Points breakdown and the proxy, and tells
-  you how to fix each problem.
-- **Optional auto sign-in**: the password is encrypted with Windows DPAPI and never shown or logged. The bot stops at
-  any verification step (code, Authenticator, CAPTCHA) instead of trying to pass it.
-- **Runs without a window** (`--run-all --headless`), so you can schedule it with Windows Task Scheduler or cron.
-- Light and dark theme, English and Vietnamese UI, keyboard accessible.
-
-Not supported: the **daily check-in** (it lives in the Microsoft Rewards phone app).
+## Highlights
 
 <table>
   <tr>
-    <td><img src="docs/images/accounts.png" alt="Accounts page"></td>
-    <td><img src="docs/images/history.png" alt="History page"></td>
+    <td width="33%" valign="top">
+      <h4>Every daily task</h4>
+      Daily Set, Keep earning, Quests, PC and Mobile searches, Visual Search, Read to Earn and the phone app check-in.
+    </td>
+    <td width="33%" valign="top">
+      <h4>Many accounts in parallel</h4>
+      Each account gets its own Edge profile and window, with a limit on how many run at once.
+    </td>
+    <td width="33%" valign="top">
+      <h4>Human-like searches</h4>
+      Types into the search box, pauses at random and scrolls the results; queries never repeat across accounts.
+    </td>
   </tr>
   <tr>
-    <td><img src="docs/images/dashboard-dark.png" alt="Overview in dark theme"></td>
-    <td><img src="docs/images/settings.png" alt="Settings page"></td>
+    <td valign="top">
+      <h4>Clear dashboard</h4>
+      Points, today's progress, streaks, stamp bonus, daily charts and a reward goal with an ETA.
+    </td>
+    <td valign="top">
+      <h4>Self-check with fixes</h4>
+      Verifies sign-in, the bing.com account and the proxy, and says how to fix each problem. Wrong account, no searches.
+    </td>
+    <td valign="top">
+      <h4>Your data stays local</h4>
+      No telemetry. An optional saved password is encrypted by Windows and never written to the log.
+    </td>
   </tr>
 </table>
+
+## Features
+
+| Area | What the bot does |
+|---|---|
+| **Daily tasks** | Daily Set, Keep earning (links, polls, simple quizzes), multi-step Quests. A card that was done but not credited is retried once. |
+| **Searches** | PC and Mobile searches until the points are full. Queries come from 22 topics (~2,600 real-looking sentences plus ~10,000 popular keywords), never repeated across accounts or within N days. Typed letter by letter with random pauses. |
+| **Extras** | Visual Search, Read to Earn (10 articles, 30 points), phone app check-in (keeps the Bing App Streak), Browse (Edge – Minutes). Each one can be switched on or off. |
+| **Several accounts** | Run in parallel, each in its own Edge profile and window, with an optional per-account proxy. *Run every task once* also does the tasks that are switched off. |
+| **Tracking** | Per-account overview, a per-day history of what was earned and what is still missing, and a live log with error / warning filters and search. |
+| **Self-check** | No searches: verifies sign-in, the bing.com account, the Points breakdown, the Edge profile and the proxy, with a fix for every problem. |
+| **Auto sign-in** | Optional. The password is encrypted with Windows DPAPI. The bot stops at any verification step (code, Authenticator, CAPTCHA) instead of trying to pass it. |
+| **Scheduling** | `--run-all --headless` and `--checkin` run without a window, for Windows Task Scheduler or cron. |
+| **Updates** | Tells you when a new version is out, shows the changelog, downloads and installs it in one click (SHA-256 checked). |
+| **Interface** | Light and dark theme, English and Vietnamese, keyboard accessible. Fun mode: a robot office and a Cyberpunk skin. |
+
+## Screenshots
+
+<table>
+  <tr>
+    <td width="50%" valign="top">
+      <img src="docs/images/accounts.png" alt="Accounts page">
+      <p align="center"><b>Accounts</b><br><sub>Run, stop and sign in each account; pick what the bot does on a run.</sub></p>
+    </td>
+    <td width="50%" valign="top">
+      <img src="docs/images/history.png" alt="History page">
+      <p align="center"><b>History</b><br><sub>Points per day for every account, and what is still missing.</sub></p>
+    </td>
+  </tr>
+  <tr>
+    <td valign="top">
+      <img src="docs/images/log.png" alt="Log page">
+      <p align="center"><b>Log</b><br><sub>Live activity, error / warning filters, self-check results.</sub></p>
+    </td>
+    <td valign="top">
+      <img src="docs/images/settings.png" alt="Settings page">
+      <p align="center"><b>Settings</b><br><sub>Search pacing, human-like behaviour, appearance, updates.</sub></p>
+    </td>
+  </tr>
+  <tr>
+    <td valign="top">
+      <img src="docs/images/welcome.png" alt="Welcome screen on first launch">
+      <p align="center"><b>First launch</b><br><sub>Pick a language, accept the risk, add your first account.</sub></p>
+    </td>
+    <td valign="top">
+      <img src="docs/images/login.png" alt="Sign-in helper dialog">
+      <p align="center"><b>Sign in</b><br><sub>Three steps, then click Check to make sure everything works.</sub></p>
+    </td>
+  </tr>
+  <tr>
+    <td valign="top">
+      <img src="docs/images/office.png" alt="Robot office in fun mode">
+      <p align="center"><b>Fun mode: bot office</b><br><sub>Each robot is an account, acting out what the bot is doing.</sub></p>
+    </td>
+    <td valign="top">
+      <img src="docs/images/cyberpunk.png" alt="Cyberpunk skin">
+      <p align="center"><b>Fun mode: Cyberpunk</b><br><sub>Stamp card, neon icons, its own font.</sub></p>
+    </td>
+  </tr>
+</table>
+
+<details>
+<summary><b>Dark theme</b></summary>
+<br>
+<img src="docs/images/dashboard-dark.png" alt="Overview in dark theme" width="920">
+</details>
 
 ## Install on Windows (no Python needed)
 
@@ -109,6 +191,8 @@ python -m rewards_bot
 | `python -m rewards_bot` | Opens the app (only one window at a time) |
 | `python -m rewards_bot --run-all --headless` | Runs every account without a window |
 | `python -m rewards_bot --check` | Self-checks every account, no searches |
+| `python -m rewards_bot --checkin` | Only the phone app check-in, for every account |
+| `--now` | Add to `--run-all` / `--checkin` to start right away instead of after a random wait |
 
 On Windows you can also double-click `scripts/run.bat`.
 

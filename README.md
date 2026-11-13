@@ -1,55 +1,137 @@
 <div align="center">
 
-<img src="rewards_bot/ui/web/assets/app-icon-256.png" width="96" alt="Logo PrixAuto">
+<img src="rewards_bot/ui/web/assets/app-icon-256.png" width="104" alt="Logo PrixAuto">
 
 # PrixAuto
 
-**Tự làm các việc Microsoft Rewards hằng ngày cho nhiều tài khoản, trong một app trên máy tính.**
+**Tự động làm các việc Microsoft Rewards hằng ngày cho nhiều tài khoản, trong một app trên máy tính.**
 
-[![Release](https://img.shields.io/github/v/release/NT101-lc/reward-automation?label=t%E1%BA%A3i%20v%E1%BB%81&color=2563eb)](https://github.com/NT101-lc/reward-automation/releases/latest)
+[![Release](https://img.shields.io/github/v/release/NT101-lc/reward-automation?label=b%E1%BA%A3n%20m%E1%BB%9Bi%20nh%E1%BA%A5t&color=2563eb)](https://github.com/NT101-lc/reward-automation/releases/latest)
+[![Downloads](https://img.shields.io/github/downloads/NT101-lc/reward-automation/total?label=l%C6%B0%E1%BB%A3t%20t%E1%BA%A3i&color=2563eb)](https://github.com/NT101-lc/reward-automation/releases)
 [![License: MIT](https://img.shields.io/badge/license-MIT-2563eb)](LICENSE)
-![Windows 10/11](https://img.shields.io/badge/Windows-10%20%7C%2011-475569)
-![Linux](https://img.shields.io/badge/Linux-headless%20%2B%20UI-475569)
+![Windows 10/11](https://img.shields.io/badge/Windows-10%20%7C%2011-475569?logo=windows)
+![Linux](https://img.shields.io/badge/Linux-headless%20%2B%20UI-475569?logo=linux&logoColor=white)
+![Python](https://img.shields.io/badge/Python-3.10%2B-475569?logo=python&logoColor=white)
 
-Tiếng Việt · [English](README.en.md) · [Website](https://nt101-lc.github.io/reward-automation/vi/)
+[**Tải về**](https://github.com/NT101-lc/reward-automation/releases/latest) ·
+[Tính năng](#tính-năng) ·
+[Ảnh chụp](#ảnh-chụp-màn-hình) ·
+[Cài đặt](#cài-đặt-trên-windows-không-cần-python) ·
+[Câu hỏi thường gặp](#câu-hỏi-thường-gặp) ·
+[English](README.en.md) ·
+[Website](https://nt101-lc.github.io/reward-automation/vi/)
 
-<img src="docs/images/dashboard-vi.png" alt="Trang Tổng quan của PrixAuto" width="900">
+<br>
+
+<img src="docs/images/dashboard-vi.png" alt="Trang Tổng quan của PrixAuto" width="920">
 
 </div>
+
+<br>
 
 > [!WARNING]
 > **Đọc trước khi dùng.** Điều khoản của Microsoft Rewards cấm dùng bot hay công cụ tự động để kiếm điểm. Microsoft
 > có thể **khóa tài khoản Rewards, hủy điểm chưa đổi hoặc hủy quà đã đổi**. Dự án này không liên quan và không được
 > Microsoft xác nhận. Bạn tự chịu mọi rủi ro khi dùng; đừng dùng với tài khoản mà bạn không muốn mất.
 
-## Tính năng
-
-- **Task hằng ngày**: Daily Set, Keep earning (link, poll, quiz cơ bản), Quests nhiều bước.
-- **Search**: search PC và Mobile đến khi đủ điểm. Câu search lấy từ 22 lĩnh vực (khoảng 2.600 câu dài có nghĩa và
-  10.000 từ khóa phổ biến), không trùng giữa các tài khoản và không lặp lại trong N ngày.
-- **Visual Search** và **Browse** (Edge – Minutes) là việc thêm, bật tắt riêng. Browse lúc được lúc không, xem
-  [câu hỏi thường gặp](#câu-hỏi-thường-gặp).
-- **Nhiều tài khoản song song**, mỗi tài khoản một profile Edge và một cửa sổ riêng, giới hạn được số cửa sổ chạy cùng lúc.
-- **Dashboard**: điểm, tiến độ hôm nay, streak và Stamp bonus, biểu đồ theo ngày, mục tiêu đổi quà kèm dự kiến số ngày,
-  và lịch sử từng ngày: được bao nhiêu điểm, còn thiếu việc gì.
-- **Kiểm tra** (không search): đăng nhập, tài khoản trên bing.com, Points breakdown, proxy; mỗi lỗi kèm cách sửa.
-- **Tự đăng nhập lại** (không bắt buộc): mật khẩu mã hóa bằng Windows DPAPI, không bao giờ hiện ra hay ghi vào nhật ký.
-  Gặp bước xác minh (mã, Authenticator, CAPTCHA) thì bot dừng, không cố vượt.
-- **Chạy không cần mở cửa sổ** (`--run-all --headless`), để đặt lịch bằng Windows Task Scheduler hoặc cron.
-- Giao diện sáng / tối, tiếng Việt / English, dùng được bằng bàn phím.
-
-Chưa làm được: **check-in hằng ngày** (chỉ có trong app Microsoft Rewards trên điện thoại).
+## Điểm nổi bật
 
 <table>
   <tr>
-    <td><img src="docs/images/accounts.png" alt="Trang Tài khoản"></td>
-    <td><img src="docs/images/history.png" alt="Trang Lịch sử"></td>
+    <td width="33%" valign="top">
+      <h4>Làm hết việc mỗi ngày</h4>
+      Daily Set, Keep earning, Quests, Search PC và Mobile, Visual Search, Read to Earn, check-in app điện thoại.
+    </td>
+    <td width="33%" valign="top">
+      <h4>Nhiều tài khoản song song</h4>
+      Mỗi tài khoản một profile Edge và một cửa sổ riêng, giới hạn được số cửa sổ chạy cùng lúc.
+    </td>
+    <td width="33%" valign="top">
+      <h4>Search như người thật</h4>
+      Gõ từng chữ vào ô tìm kiếm, nghỉ ngẫu nhiên, lướt kết quả; câu search không trùng giữa các tài khoản.
+    </td>
   </tr>
   <tr>
-    <td><img src="docs/images/dashboard-dark.png" alt="Tổng quan, giao diện tối"></td>
-    <td><img src="docs/images/settings.png" alt="Trang Cài đặt"></td>
+    <td valign="top">
+      <h4>Dashboard rõ ràng</h4>
+      Điểm, tiến độ hôm nay, streak, Stamp bonus, biểu đồ theo ngày và mục tiêu đổi quà kèm dự kiến số ngày.
+    </td>
+    <td valign="top">
+      <h4>Tự kiểm tra, tự báo lỗi</h4>
+      Kiểm tra đăng nhập, tài khoản trên bing.com, proxy; mỗi lỗi kèm cách sửa. Sai tài khoản thì không search.
+    </td>
+    <td valign="top">
+      <h4>Dữ liệu ở trên máy bạn</h4>
+      Không gửi số liệu sử dụng. Mật khẩu (nếu bật tự đăng nhập) được Windows mã hóa, không bao giờ ghi ra nhật ký.
+    </td>
   </tr>
 </table>
+
+## Tính năng
+
+| Nhóm | Bot làm gì |
+|---|---|
+| **Task hằng ngày** | Daily Set, Keep earning (link, poll, quiz cơ bản), Quests nhiều bước. Thẻ làm xong mà chưa được ghi nhận thì làm lại một lần. |
+| **Search** | Search PC và Mobile đến khi đủ điểm. Câu search lấy từ 22 lĩnh vực (khoảng 2.600 câu dài có nghĩa và 10.000 từ khóa phổ biến), không trùng giữa các tài khoản và không lặp lại trong N ngày. Gõ từng chữ vào ô tìm kiếm, nghỉ ngẫu nhiên giữa các lượt. |
+| **Việc thêm** | Visual Search, Read to Earn (10 bài báo, 30 điểm), check-in app điện thoại (giữ chuỗi Bing App Streak), Browse (Edge – Minutes). Bật tắt riêng từng việc. |
+| **Nhiều tài khoản** | Chạy song song, mỗi tài khoản một profile Edge và cửa sổ riêng, proxy riêng nếu cần. Nút *Chạy mọi việc một lần* làm cả những việc đang tắt. |
+| **Theo dõi** | Tổng quan theo từng tài khoản, lịch sử từng ngày (được bao nhiêu điểm, còn thiếu việc gì), nhật ký có lọc lỗi / cảnh báo và tìm kiếm. |
+| **Kiểm tra** | Không search: kiểm tra đăng nhập, tài khoản trên bing.com, Points breakdown, profile Edge và proxy; mỗi lỗi kèm cách sửa. |
+| **Tự đăng nhập lại** | Không bắt buộc. Mật khẩu mã hóa bằng Windows DPAPI. Gặp bước xác minh (mã, Authenticator, CAPTCHA) thì bot dừng, không cố vượt. |
+| **Chạy theo lịch** | `--run-all --headless` và `--checkin` để đặt lịch bằng Windows Task Scheduler hoặc cron, không mở cửa sổ. |
+| **Tự cập nhật** | Báo khi có bản mới, hiện danh sách thay đổi, tải và cài bằng một nút (có kiểm tra SHA-256). |
+| **Giao diện** | Sáng / tối, tiếng Việt / English, dùng được bằng bàn phím. Chế độ vui: văn phòng robot, giao diện Cyberpunk. |
+
+## Ảnh chụp màn hình
+
+<table>
+  <tr>
+    <td width="50%" valign="top">
+      <img src="docs/images/accounts-vi.png" alt="Trang Tài khoản">
+      <p align="center"><b>Tài khoản</b><br><sub>Chạy, dừng, đăng nhập từng tài khoản; chọn việc bot làm trong một lượt.</sub></p>
+    </td>
+    <td width="50%" valign="top">
+      <img src="docs/images/history-vi.png" alt="Trang Lịch sử">
+      <p align="center"><b>Lịch sử</b><br><sub>Điểm mỗi ngày của từng tài khoản và việc còn thiếu.</sub></p>
+    </td>
+  </tr>
+  <tr>
+    <td valign="top">
+      <img src="docs/images/log-vi.png" alt="Trang Nhật ký">
+      <p align="center"><b>Nhật ký</b><br><sub>Theo dõi trực tiếp, lọc lỗi / cảnh báo, kết quả Kiểm tra.</sub></p>
+    </td>
+    <td valign="top">
+      <img src="docs/images/settings-vi.png" alt="Trang Cài đặt">
+      <p align="center"><b>Cài đặt</b><br><sub>Nhịp search, hành vi giống người, giao diện, cập nhật.</sub></p>
+    </td>
+  </tr>
+  <tr>
+    <td valign="top">
+      <img src="docs/images/welcome-vi.png" alt="Màn hình chào lần đầu mở app">
+      <p align="center"><b>Lần đầu mở app</b><br><sub>Chọn ngôn ngữ, đọc và đồng ý phần rủi ro, thêm tài khoản.</sub></p>
+    </td>
+    <td valign="top">
+      <img src="docs/images/login-vi.png" alt="Hộp hướng dẫn đăng nhập">
+      <p align="center"><b>Đăng nhập</b><br><sub>Ba bước, sau đó bấm Kiểm tra để chắc chắn mọi thứ ổn.</sub></p>
+    </td>
+  </tr>
+  <tr>
+    <td valign="top">
+      <img src="docs/images/office-vi.png" alt="Văn phòng robot ở chế độ vui">
+      <p align="center"><b>Chế độ vui: Văn phòng bot</b><br><sub>Mỗi robot là một tài khoản, làm đúng việc bot đang làm.</sub></p>
+    </td>
+    <td valign="top">
+      <img src="docs/images/cyberpunk-vi.png" alt="Giao diện Cyberpunk">
+      <p align="center"><b>Chế độ vui: Cyberpunk</b><br><sub>Thẻ đóng dấu, icon neon, font riêng.</sub></p>
+    </td>
+  </tr>
+</table>
+
+<details>
+<summary><b>Giao diện tối</b></summary>
+<br>
+<img src="docs/images/dashboard-dark.png" alt="Tổng quan, giao diện tối" width="920">
+</details>
 
 ## Cài đặt trên Windows (không cần Python)
 
@@ -291,6 +373,8 @@ Phần này chỉ cần nếu bạn muốn chạy từ mã nguồn hoặc phát 
 | `python -m rewards_bot` | Mở app (chỉ một cửa sổ một lúc) |
 | `python -m rewards_bot --run-all --headless` | Chạy mọi tài khoản, không mở cửa sổ |
 | `python -m rewards_bot --check` | Kiểm tra mọi tài khoản, không search |
+| `python -m rewards_bot --checkin` | Chỉ check-in app điện thoại cho mọi tài khoản |
+| `--now` | Thêm vào `--run-all` / `--checkin` để chạy ngay, không chờ ngẫu nhiên |
 
 Mặc định app dùng Edge có sẵn; muốn dùng Chromium của Playwright thì chạy `python -m playwright install chromium` rồi
 chọn trong trang Cài đặt.
