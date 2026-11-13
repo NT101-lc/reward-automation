@@ -25,14 +25,6 @@ def test_headless_hides_window_without_disabling_gpu():
     args = el.build_args("chrome.exe", "d", headless=True)
     assert "--headless=new" in args and "--window-position=-32000,-32000" in args
     assert "--disable-gpu" not in args and "--edge-skip-compat-layer-relaunch" not in args
-    assert el.EDGE_NO_OS_SIGNIN not in args  # cờ tắt SSO chỉ dành cho Edge
-
-
-def test_edge_gets_flag_against_windows_auto_signin():
-    for exe in ("msedge.exe", "/usr/bin/microsoft-edge-stable"):
-        args = el.build_args(exe, "d", headless=False)
-        assert args.count(el.EDGE_NO_OS_SIGNIN) == 1
-        assert sum(a.startswith("--disable-features=") for a in args) == 1  # Edge chỉ đọc 1 cờ --disable-features
 
 
 def test_read_port(tmp_path):

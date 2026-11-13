@@ -121,13 +121,6 @@ def is_edge(exe: str) -> bool:
 # bằng một tài khoản khác. Không chỉ định thì Edge mở profile dùng gần nhất, nên bot có thể lặng lẽ chạy sai profile.
 # Bot ghim profile vào file này ở lần mở đầu tiên rồi luôn mở đúng profile đó (--profile-directory).
 PIN_FILE = "rewards_bot_profile.txt"
-
-# Edge trên Windows tự đăng nhập profile mới bằng tài khoản đang gắn với Windows (SSO), nên thư mục tài khoản mới mở
-# ra đã có sẵn tài khoản khác. Thử trên Edge 157: tắt 4 feature này thì profile mới để trống, login.live.com hiện ô
-# email trống. Tên feature lạ (Edge đổi tên ở bản sau) bị Edge bỏ qua, không gây lỗi. Profile đã đăng nhập từ trước
-# không bị đăng xuất.
-EDGE_NO_OS_SIGNIN = ("--disable-features=msSSOBrowserHint,msSSOBrowserHintPhase2,msSsoByHttpDefer,"
-                     "msEnableProfileAADAccountSSO")
 _PROFILE_DIR_RE = re.compile(r"^(Default|Profile \d{1,3})$")
 
 
@@ -198,8 +191,6 @@ def build_args(exe: str, user_data_dir: str, headless: bool, extra=(), profile_d
         if not _PROFILE_DIR_RE.match(profile_directory):
             raise ValueError(f"Tên profile Edge không hợp lệ: {profile_directory!r}")
         args.append(f"--profile-directory={profile_directory}")
-    if is_edge(exe):
-        args.append(EDGE_NO_OS_SIGNIN)
     if os.path.basename(exe).lower() == "msedge.exe":  # chỉ Edge trên Windows mới tự mở lại qua lớp tương thích
         args.append("--edge-skip-compat-layer-relaunch")  # để Edge không tự mở lại thành process khác
     if headless:
